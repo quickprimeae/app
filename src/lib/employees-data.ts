@@ -16,6 +16,7 @@ export type EmployeeRow = {
   phone: string
   locationId: string | null
   location: string
+  branch: string | null
   client: string | null
   supervisor: string | null
   startDate: string | null
@@ -48,7 +49,7 @@ export async function getEmployeesList(tenantId: string): Promise<EmployeeRow[]>
   const [empRes, locRes, evtRes, hoursRes] = await Promise.all([
     supabase
       .from('employees')
-      .select('id, employee_number, first_name, last_name, phone, nationality, location_id, hourly_rate, shift_days, shift_start, shift_end, has_photo, active, pin_set, start_date, supervisor:ops_users(name)')
+      .select('id, employee_number, first_name, last_name, phone, nationality, location_id, branch, hourly_rate, shift_days, shift_start, shift_end, has_photo, active, pin_set, start_date, supervisor:ops_users(name)')
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false }),
     supabase
@@ -116,6 +117,7 @@ export async function getEmployeesList(tenantId: string): Promise<EmployeeRow[]>
       phone: e.phone,
       locationId: e.location_id ?? null,
       location: loc?.name ?? 'Unassigned',
+      branch: e.branch ?? null,
       client: loc?.client?.name ?? null,
       supervisor: e.supervisor?.name ?? null,
       startDate: e.start_date ?? null,

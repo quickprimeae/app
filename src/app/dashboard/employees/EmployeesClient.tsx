@@ -216,6 +216,7 @@ export default function EmployeesClient({ initial }: { initial: EmployeeRow[] })
                     <th onClick={() => toggleSort('name')}>Employee {sortIcon('name')}</th>
                     <th onClick={() => toggleSort('status')}>Status {sortIcon('status')}</th>
                     <th onClick={() => toggleSort('location')}>Location {sortIcon('location')}</th>
+                    <th onClick={() => toggleSort('branch')}>Branch {sortIcon('branch')}</th>
                     <th onClick={() => toggleSort('client')}>Client {sortIcon('client')}</th>
                     <th onClick={() => toggleSort('clockedInAt')}>Clocked in {sortIcon('clockedInAt')}</th>
                     <th onClick={() => toggleSort('hourlyRate')}>Rate {sortIcon('hourlyRate')}</th>
@@ -225,7 +226,7 @@ export default function EmployeesClient({ initial }: { initial: EmployeeRow[] })
                 </thead>
                 <tbody>
                   {pageRows.length === 0 && (
-                    <tr><td colSpan={8} style={{ textAlign: 'center', padding: 40, color: T.dim }}>No employees match your filters.</td></tr>
+                    <tr><td colSpan={9} style={{ textAlign: 'center', padding: 40, color: T.dim }}>No employees match your filters.</td></tr>
                   )}
                   {pageRows.map((emp) => (
                     <tr key={emp.id} className={selected === emp.id ? 'selected' : ''} onClick={() => setSelected(selected === emp.id ? null : emp.id)} style={{ opacity: emp.active ? 1 : 0.5 }}>
@@ -241,6 +242,7 @@ export default function EmployeesClient({ initial }: { initial: EmployeeRow[] })
                         </span>
                       </td>
                       <td><div className="ep-location-text">{emp.location}</div></td>
+                      <td><span style={{ fontSize: 12, color: T.whiteMid }}>{emp.branch ?? '—'}</span></td>
                       <td><span style={{ fontSize: 12, color: T.whiteMid }}>{emp.client ?? '—'}</span></td>
                       <td><span className="ep-mono">{fmt(emp.clockedInAt)}</span></td>
                       <td><span className="ep-mono">AED {emp.hourlyRate}</span></td>
@@ -293,6 +295,7 @@ export default function EmployeesClient({ initial }: { initial: EmployeeRow[] })
                       { label: 'Phone', val: selectedEmp.phone, mono: true },
                       { label: 'Start date', val: fmtDate(selectedEmp.startDate) },
                       { label: 'Location', val: selectedEmp.location },
+                      { label: 'Branch', val: selectedEmp.branch ?? '—' },
                       { label: 'Supervisor', val: selectedEmp.supervisor ?? 'Unassigned' },
                       { label: 'Shift', val: `${selectedEmp.shiftHours} · ${selectedEmp.shiftDays ?? '—'}${selectedEmp.personalShift ? ' (personal)' : ' (location default)'}` },
                       { label: 'Hourly rate', val: `AED ${selectedEmp.hourlyRate}/hr`, mono: true },
