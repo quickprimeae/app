@@ -165,6 +165,7 @@ export default function DashboardClient({
   ]
   const NAV_ADMIN = [
     { id: 'onboarding', icon: '➕', label: 'Add employees', href: '/dashboard/employees/new' },
+    { id: 'invites', icon: '🔗', label: 'Pending invites', href: '/dashboard/employees/invites' },
   ]
 
   return (
