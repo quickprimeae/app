@@ -1,25 +1,31 @@
 // src/lib/supabase.ts
-// Two clients: one for browser (anon key), one for server API routes (service role)
+// Two clients: one for the browser (publishable key, RLS-enforced) and one for
+// server API routes (secret key, full access). Works with both the new key
+// format (sb_publishable_… / sb_secret_…) and legacy anon/service_role JWTs —
+// see supabase-config.ts for why no JWT parsing is needed.
 
 import { createClient } from '@supabase/supabase-js'
 import { createBrowserClient } from '@supabase/ssr'
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './supabase-config'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+// Server-only full-access key. New format: sb_secret_… (legacy: service_role
+// JWT). Reading a non-NEXT_PUBLIC var here is safe — Next strips it from the
+// browser bundle, and createServerSupabaseClient is only ever called server-side.
+const supabaseSecretKey =
+  process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 // ── Browser client (used in React components) ──────────────
-// Uses anon key — respects RLS
+// Publishable key — respects RLS.
 export function createBrowserSupabaseClient() {
-  return createBrowserClient(supabaseUrl, supabaseAnonKey)
+  return createBrowserClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY)
 }
 
-// ── Service-role client (used in API routes only) ──────────
-// Uses service role key — bypasses RLS, full DB access
-// Only ever use this in /api routes, never expose to browser
+// ── Secret-key client (used in API routes only) ────────────
+// Bypasses RLS, full DB access. Never expose to the browser. The key is not a
+// user session, so disable session persistence and token auto-refresh.
 export function createServerSupabaseClient() {
-  return createClient(supabaseUrl, supabaseServiceKey, {
-    auth: { persistSession: false }
+  return createClient(SUPABASE_URL, supabaseSecretKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
   })
 }
 
