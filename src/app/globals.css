@@ -1,0 +1,64 @@
+/* src/app/globals.css */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --teal-dark:   #085041;
+  --teal:        #0F6E56;
+  --teal-mid:    #1D9E75;
+  --teal-bright: #25D09A;
+  --teal-light:  #E1F5EE;
+  --teal-faint:  #0d1f18;
+  --teal-border: #9FE1CB;
+  --teal-text:   #5DCAA5;
+
+  --bg:          #0a0f0d;
+  --bg-card:     #111815;
+  --bg-hover:    #161e1a;
+  --bg-subtle:   #0f1712;
+  --border:      #1e2b24;
+  --border-mid:  #243329;
+
+  --white:       #f0f7f4;
+  --white-mid:   #c8ddd6;
+  --dim:         #6b8078;
+  --dim-mid:     #4a6058;
+
+  --green:       #22c55e;
+  --green-bg:    #0d2018;
+  --amber:       #f59e0b;
+  --amber-bg:    #1f1608;
+  --red:         #ef4444;
+  --red-bg:      #1f0d0d;
+}
+
+html, body { height: 100%; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--white);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Picker interface uses light-on-dark teal theme */
+body.picker-view {
+  background: #fff;
+  color: var(--teal-dark);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--dim-mid); }
+
+/* Focus ring */
+:focus-visible {
+  outline: 2px solid var(--teal-mid);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Selection */
+::selection { background: var(--teal-dark); color: var(--teal-bright); }
