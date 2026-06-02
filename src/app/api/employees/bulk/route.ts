@@ -1,36 +1,42 @@
 // src/app/api/employees/bulk/route.ts
-// Ops-only. POST { rows: [...] } — creates many employees from a parsed CSV,
-// resolving location names -> ids, then sends each a PIN-setup WhatsApp invite.
-// Returns per-row results so the UI can report successes/failures.
+// Ops-only. POST { rows: [...] } — creates many employees from a parsed CSV.
+// Columns: name, phone, nationality, shift_type, monthly_salary, shift_days,
+// joining_date, location, supervisor, vendor, branch. hourly_rate is derived
+// (monthly_salary / 26 / shift_hours). Shift start/end are NOT set — pickers
+// inherit the location defaults. Sends each a PIN-setup WhatsApp invite.
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase'
 import { getOpsContext } from '@/lib/ops'
 import { generateSetupToken, buildSetupUrl } from '@/lib/pin'
 import { sendPinSetupInvite } from '@/lib/whatsapp'
+import { hourlyRateFromSalary } from '@/lib/salary'
 
 type InRow = {
-  first_name?: string
-  last_name?: string
+  name?: string
   phone?: string
-  employee_id?: string
   nationality?: string
-  start_date?: string
-  location?: string
+  shift_type?: string
+  monthly_salary?: string | number
   shift_days?: string
-  shift_start?: string
-  shift_end?: string
-  hourly_rate?: string | number
+  joining_date?: string
+  location?: string
   supervisor?: string
+  vendor?: string
+  branch?: string
 }
 
-// "8:00" / "08:00" / "08:00:00" -> "08:00:00" (Postgres time); blank -> null
-function normTime(t?: string): string | null {
-  const v = t?.trim()
-  if (!v) return null
-  const m = v.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/)
-  if (!m) return null
-  return `${m[1].padStart(2, '0')}:${m[2]}:${m[3] ?? '00'}`
+function splitName(name: string): { first: string; last: string } {
+  const parts = name.trim().split(/\s+/)
+  return { first: parts[0] ?? '', last: parts.slice(1).join(' ') }
+}
+
+// UAE mobile "5xxxxxxxx" (also tolerates 0-prefix or existing +971) -> +9715xxxxxxxx
+function normPhone(phone: string): string {
+  let d = phone.replace(/\D/g, '')
+  if (d.startsWith('971')) d = d.slice(3)
+  if (d.startsWith('0')) d = d.slice(1)
+  return `+971${d}`
 }
 
 export async function POST(req: NextRequest) {
@@ -48,13 +54,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Max 500 rows per upload' }, { status: 400 })
     }
 
-    // Resolve lookups once.
+    // Resolve lookups once. Locations carry their client name for vendor checks.
     const [{ data: locs }, { data: sups }, { data: existing }] = await Promise.all([
-      supabase.from('locations').select('id, name').eq('tenant_id', tenantId),
+      supabase.from('locations').select('id, name, client:clients(name)').eq('tenant_id', tenantId),
       supabase.from('ops_users').select('id, name').eq('tenant_id', tenantId),
       supabase.from('employees').select('phone').eq('tenant_id', tenantId),
     ])
-    const locByName = new Map((locs ?? []).map((l) => [l.name.trim().toLowerCase(), l.id]))
+    const locByName = new Map(
+      ((locs ?? []) as any[]).map((l) => [l.name.trim().toLowerCase(), { id: l.id, client: (l.client?.name ?? '').toLowerCase() }])
+    )
     const supByName = new Map((sups ?? []).map((s) => [(s.name ?? '').trim().toLowerCase(), s.id]))
     const takenPhones = new Set((existing ?? []).map((e) => e.phone))
 
@@ -63,20 +71,34 @@ export async function POST(req: NextRequest) {
 
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i]
-      const phone = r.phone?.trim()
-      if (!r.first_name?.trim() || !r.last_name?.trim() || !phone) {
-        results.push({ row: i + 1, phone, ok: false, error: 'Missing required fields' })
+      const fail = (error: string, phone?: string) => results.push({ row: i + 1, phone, ok: false, error })
+
+      if (!r.name?.trim()) { fail('Missing name'); continue }
+      const { first, last } = splitName(r.name)
+      if (!first) { fail('Invalid name'); continue }
+
+      if (!r.phone?.trim()) { fail('Missing phone'); continue }
+      const phone = normPhone(r.phone)
+      if (!/^\+9715\d{8}$/.test(phone)) { fail(`Invalid UAE phone: ${r.phone}`, phone); continue }
+      if (takenPhones.has(phone)) { fail('Phone already registered', phone); continue }
+
+      const shiftType = r.shift_type?.trim()
+      if (shiftType !== '8h' && shiftType !== '10h') { fail('shift_type must be 8h or 10h', phone); continue }
+
+      const hourly_rate = hourlyRateFromSalary(r.monthly_salary as any, shiftType)
+      if (hourly_rate == null) { fail('monthly_salary must be a positive number', phone); continue }
+
+      if (!r.location?.trim()) { fail('Missing location', phone); continue }
+      const loc = locByName.get(r.location.trim().toLowerCase())
+      if (!loc) { fail(`Unknown location: ${r.location}`, phone); continue }
+
+      // vendor maps to the client; if given it must match the location's client.
+      const vendor = r.vendor?.trim().toLowerCase()
+      if (vendor && loc.client && vendor !== loc.client) {
+        fail(`Vendor "${r.vendor}" doesn't match location's client "${loc.client}"`, phone)
         continue
       }
-      if (takenPhones.has(phone)) {
-        results.push({ row: i + 1, phone, ok: false, error: 'Phone already registered' })
-        continue
-      }
-      const location_id = r.location ? locByName.get(r.location.trim().toLowerCase()) ?? null : null
-      if (r.location && !location_id) {
-        results.push({ row: i + 1, phone, ok: false, error: `Unknown location: ${r.location}` })
-        continue
-      }
+
       const supervisor_id = r.supervisor ? supByName.get(r.supervisor.trim().toLowerCase()) ?? null : null
 
       const { token, hash: tokenHash, expires } = generateSetupToken()
@@ -84,38 +106,33 @@ export async function POST(req: NextRequest) {
         .from('employees')
         .insert({
           tenant_id: tenantId,
-          first_name: r.first_name.trim(),
-          last_name: r.last_name.trim(),
+          first_name: first,
+          last_name: last,
           phone,
           nationality: r.nationality?.trim() || null,
           role: 'picker',
-          location_id,
+          location_id: loc.id,
           supervisor_id,
-          hourly_rate: r.hourly_rate ? Number(r.hourly_rate) : 0,
+          hourly_rate,
+          monthly_salary: Number(r.monthly_salary),
+          shift_type: shiftType,
           shift_days: r.shift_days?.trim() || null,
-          shift_start: normTime(r.shift_start),
-          shift_end: normTime(r.shift_end),
-          start_date: r.start_date?.trim() || new Date().toISOString().split('T')[0],
+          branch: r.branch?.trim() || null,
+          // shift_start/shift_end intentionally unset — inherit location defaults.
+          start_date: r.joining_date?.trim() || new Date().toISOString().split('T')[0],
           pin_setup_token_hash: tokenHash,
           pin_setup_expires: expires.toISOString(),
-          employee_number: r.employee_id?.trim() || '',
+          employee_number: '',
           active: true,
         })
         .select('id')
         .single()
 
-      if (error || !emp) {
-        results.push({ row: i + 1, phone, ok: false, error: error?.message || 'Insert failed' })
-        continue
-      }
+      if (error || !emp) { fail(error?.message || 'Insert failed', phone); continue }
       takenPhones.add(phone)
       created++
 
-      const { success: waSent } = await sendPinSetupInvite({
-        firstName: r.first_name.trim(),
-        phone,
-        setupUrl: buildSetupUrl(token),
-      })
+      const { success: waSent } = await sendPinSetupInvite({ firstName: first, phone, setupUrl: buildSetupUrl(token) })
       results.push({ row: i + 1, phone, ok: true, whatsapp_sent: waSent })
     }
 

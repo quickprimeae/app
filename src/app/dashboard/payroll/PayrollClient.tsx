@@ -16,7 +16,7 @@ const T = {
 }
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-type HoursRow = { employee_id: string; employee_name: string; employee_number: string; total_hours: number; gross_pay: number; shifts_worked: number; pending_reviews: number; hourly_rate: number }
+type HoursRow = { employee_id: string; employee_name: string; employee_number: string; total_hours: number; gross_pay: number; shifts_worked: number; pending_reviews: number; hourly_rate: number; monthly_salary: number | null; shift_type: string | null }
 type PayrollData = { hours: HoursRow[]; pending_reviews: any[]; total_employees: number; total_hours: number; total_gross: number }
 
 export default function PayrollClient({ tenantId, opsUserId }: { tenantId: string; opsUserId: string }) {
@@ -99,13 +99,15 @@ export default function PayrollClient({ tenantId, opsUserId }: { tenantId: strin
 
           <div className="py-table-wrap">
             <table className="py-table">
-              <thead><tr><th>Employee</th><th>Shifts</th><th>Hours</th><th>Rate</th><th>Gross pay</th><th>Reviews</th></tr></thead>
+              <thead><tr><th>Employee</th><th>Monthly salary</th><th>Shift</th><th>Shifts</th><th>Hours</th><th>Rate</th><th>Gross pay</th><th>Reviews</th></tr></thead>
               <tbody>
-                {loading && <tr><td colSpan={6} style={{ textAlign: 'center', padding: 40, color: T.dim }}>Loading…</td></tr>}
-                {!loading && rows.length === 0 && <tr><td colSpan={6} style={{ textAlign: 'center', padding: 40, color: T.dim }}>No payroll data for {MONTHS[month - 1]} {year}.</td></tr>}
+                {loading && <tr><td colSpan={8} style={{ textAlign: 'center', padding: 40, color: T.dim }}>Loading…</td></tr>}
+                {!loading && rows.length === 0 && <tr><td colSpan={8} style={{ textAlign: 'center', padding: 40, color: T.dim }}>No payroll data for {MONTHS[month - 1]} {year}.</td></tr>}
                 {!loading && rows.map((r) => (
                   <tr key={r.employee_id}>
                     <td>{r.employee_name}<div className="py-sub">{r.employee_number}</div></td>
+                    <td className="py-mono">{r.monthly_salary != null ? `AED ${Math.round(r.monthly_salary).toLocaleString()}` : '—'}</td>
+                    <td className="py-mono">{r.shift_type ?? '—'}</td>
                     <td className="py-mono">{r.shifts_worked}</td>
                     <td className="py-mono">{Math.round((r.total_hours ?? 0) * 10) / 10}h</td>
                     <td className="py-mono">AED {r.hourly_rate}</td>

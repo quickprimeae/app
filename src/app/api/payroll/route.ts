@@ -28,6 +28,18 @@ export async function GET(req: NextRequest) {
 
   if (hoursErr) return NextResponse.json({ error: hoursErr.message }, { status: 500 })
 
+  // Attach monthly_salary + shift_type (stored on employees, not in the view).
+  const { data: emps } = await supabase
+    .from('employees')
+    .select('id, monthly_salary, shift_type')
+    .eq('tenant_id', tenant_id)
+  const salaryByEmp = new Map((emps ?? []).map((e) => [e.id, e]))
+  const hoursWithSalary = (hours ?? []).map((h: any) => ({
+    ...h,
+    monthly_salary: salaryByEmp.get(h.employee_id)?.monthly_salary ?? null,
+    shift_type: salaryByEmp.get(h.employee_id)?.shift_type ?? null,
+  }))
+
   // Get shifts needing review
   const startDate = `${year}-${month.padStart(2,'0')}-01`
   const endDate = new Date(parseInt(year), parseInt(month), 0).toISOString().split('T')[0]
@@ -41,7 +53,7 @@ export async function GET(req: NextRequest) {
     .lte('date', endDate)
 
   return NextResponse.json({
-    hours,
+    hours: hoursWithSalary,
     pending_reviews: pendingReviews || [],
     total_employees: hours?.length || 0,
     total_hours: hours?.reduce((a, e) => a + (e.total_hours || 0), 0) || 0,

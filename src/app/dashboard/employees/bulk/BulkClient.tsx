@@ -16,43 +16,41 @@ const T = {
 }
 
 const COLUMNS = [
-  { key: 'first_name', required: true, desc: "First name" },
-  { key: 'last_name', required: true, desc: 'Last name' },
-  { key: 'phone', required: true, desc: '+971501234567' },
-  { key: 'employee_id', required: false, desc: 'Blank = auto' },
+  { key: 'name', required: true, desc: 'Full name (split on first space)' },
+  { key: 'phone', required: true, desc: '5xxxxxxxx (+971 added)' },
   { key: 'nationality', required: false, desc: 'e.g. Philippines' },
-  { key: 'start_date', required: true, desc: 'YYYY-MM-DD' },
-  { key: 'location', required: true, desc: 'Exact location name' },
-  { key: 'shift_start', required: true, desc: 'HH:MM' },
-  { key: 'shift_end', required: true, desc: 'HH:MM' },
-  { key: 'hourly_rate', required: true, desc: 'Number' },
+  { key: 'shift_type', required: true, desc: '8h or 10h' },
+  { key: 'monthly_salary', required: true, desc: 'Number (AED/month)' },
   { key: 'shift_days', required: false, desc: 'e.g. Mon-Fri' },
+  { key: 'joining_date', required: true, desc: 'YYYY-MM-DD' },
+  { key: 'location', required: true, desc: 'Exact DB location name' },
   { key: 'supervisor', required: false, desc: 'Supervisor name' },
+  { key: 'vendor', required: false, desc: 'Talabat or Deliveroo' },
+  { key: 'branch', required: false, desc: 'Branch label (reference)' },
 ]
 const SAMPLE_ROWS = [
-  ['Ahmed', 'Al Rashidi', '+971501234567', 'QP-0041', 'UAE', '2026-06-01', 'Carrefour — Mall of the Emirates', '08:00', '19:00', '22.50', 'Mon-Fri', 'Ops Admin'],
-  ['Maria', 'Santos', '+971509876543', '', 'Philippines', '2026-06-01', 'Spinneys — JBR', '08:00', '19:00', '22.50', 'Mon-Sat', ''],
+  ['Ahmed Al Rashidi', '501234567', 'UAE', '8h', '2080', 'Mon-Sat', '2026-06-01', 'Carrefour — Mall of the Emirates', 'Ops Admin', 'Talabat', 'MOE'],
+  ['Maria Santos', '509876543', 'Philippines', '10h', '2600', 'Mon-Sat', '2026-06-01', 'Spinneys — JBR', 'Ops Admin', 'Deliveroo', 'JBR'],
 ]
 
 type Row = Record<string, string> & { _row: number; _errors: string[]; _status: 'valid' | 'error' }
 
 function validateRow(row: Record<string, string>): string[] {
   const errors: string[] = []
-  const phone = row.phone?.trim()
-  const timeRe = /^\d{1,2}:\d{2}$/
-  if (!row.first_name?.trim()) errors.push('Missing first name')
-  if (!row.last_name?.trim()) errors.push('Missing last name')
-  if (!phone) errors.push('Missing phone')
-  else if (!/^\+\d{7,15}$/.test(phone.replace(/\s/g, ''))) errors.push('Phone must start with + and country code')
-  if (!row.start_date?.trim()) errors.push('Missing start date')
-  else if (!/^\d{4}-\d{2}-\d{2}$/.test(row.start_date.trim())) errors.push('Date must be YYYY-MM-DD')
+  if (!row.name?.trim()) errors.push('Missing name')
+  const phone = (row.phone ?? '').replace(/\D/g, '').replace(/^971/, '').replace(/^0/, '')
+  if (!row.phone?.trim()) errors.push('Missing phone')
+  else if (!/^5\d{8}$/.test(phone)) errors.push('Phone must be 5xxxxxxxx (UAE mobile)')
+  const st = row.shift_type?.trim()
+  if (!st) errors.push('Missing shift_type')
+  else if (st !== '8h' && st !== '10h') errors.push('shift_type must be 8h or 10h')
+  if (!row.monthly_salary?.trim()) errors.push('Missing monthly_salary')
+  else if (isNaN(parseFloat(row.monthly_salary)) || parseFloat(row.monthly_salary) <= 0) errors.push('monthly_salary must be a positive number')
+  if (!row.joining_date?.trim()) errors.push('Missing joining_date')
+  else if (!/^\d{4}-\d{2}-\d{2}$/.test(row.joining_date.trim())) errors.push('joining_date must be YYYY-MM-DD')
   if (!row.location?.trim()) errors.push('Missing location')
-  if (!row.shift_start?.trim()) errors.push('Missing shift start')
-  else if (!timeRe.test(row.shift_start.trim())) errors.push('Shift start must be HH:MM')
-  if (!row.shift_end?.trim()) errors.push('Missing shift end')
-  else if (!timeRe.test(row.shift_end.trim())) errors.push('Shift end must be HH:MM')
-  if (!row.hourly_rate?.trim()) errors.push('Missing hourly rate')
-  else if (isNaN(parseFloat(row.hourly_rate))) errors.push('Hourly rate must be a number')
+  const vendor = row.vendor?.trim().toLowerCase()
+  if (vendor && vendor !== 'talabat' && vendor !== 'deliveroo') errors.push('vendor must be Talabat or Deliveroo')
   return errors
 }
 
@@ -101,9 +99,10 @@ export default function BulkClient() {
     if (valid.length === 0) return
     setView(VIEW.UPLOADING)
     const payload = valid.map((r) => ({
-      first_name: r.first_name, last_name: r.last_name, phone: r.phone, employee_id: r.employee_id,
-      nationality: r.nationality, start_date: r.start_date, location: r.location,
-      shift_days: r.shift_days, hourly_rate: r.hourly_rate, supervisor: r.supervisor,
+      name: r.name, phone: r.phone, nationality: r.nationality,
+      shift_type: r.shift_type, monthly_salary: r.monthly_salary, shift_days: r.shift_days,
+      joining_date: r.joining_date, location: r.location, supervisor: r.supervisor,
+      vendor: r.vendor, branch: r.branch,
     }))
     try {
       const res = await fetch('/api/employees/bulk', {
@@ -164,7 +163,7 @@ export default function BulkClient() {
                   </div>
                   <button className="bu-dl-btn" onClick={downloadTemplate}>⬇ Download template</button>
                 </div>
-                <div className="bu-info teal"><span className="bu-info-icon">💡</span><div><strong>Tip:</strong> Don&apos;t rename or reorder column headers. Leave <code style={{ fontFamily: 'monospace', fontSize: 12 }}>employee_id</code> blank to auto-generate.</div></div>
+                <div className="bu-info teal"><span className="bu-info-icon">💡</span><div><strong>Tip:</strong> Don&apos;t rename or reorder column headers. <code style={{ fontFamily: 'monospace', fontSize: 12 }}>phone</code> is the UAE mobile without country code (e.g. 501234567); <code style={{ fontFamily: 'monospace', fontSize: 12 }}>hourly rate</code> is derived from <code style={{ fontFamily: 'monospace', fontSize: 12 }}>monthly_salary</code> ÷ 26 ÷ shift hours. Pickers inherit their location&apos;s shift times.</div></div>
                 <div className={`bu-drop-zone ${drag ? 'drag' : ''}`} onDragOver={(e) => { e.preventDefault(); setDrag(true) }} onDragLeave={() => setDrag(false)} onDrop={(e) => { e.preventDefault(); setDrag(false); handleFile(e.dataTransfer.files[0]) }} onClick={() => fileRef.current?.click()}>
                   <div className="bu-drop-icon">📂</div>
                   <div className="bu-drop-title">Drop your CSV here</div>
@@ -197,20 +196,20 @@ export default function BulkClient() {
                 </div>
                 <div className="bu-table-wrap">
                   <table className="bu-table">
-                    <thead><tr><th>#</th><th>Status</th><th>Name</th><th>Phone</th><th>Employee ID</th><th>Location</th><th>Shift</th><th>Rate</th><th>Start</th></tr></thead>
+                    <thead><tr><th>#</th><th>Status</th><th>Name</th><th>Phone</th><th>Shift</th><th>Monthly salary</th><th>Location</th><th>Vendor</th><th>Joining</th></tr></thead>
                     <tbody>
                       {displayRows.length === 0 && <tr><td colSpan={9} style={{ textAlign: 'center', padding: 32, color: T.inkLight }}>No rows match this filter.</td></tr>}
                       {displayRows.map((row, i) => (
                         <tr key={i} className={row._status === 'error' ? 'row-error' : ''}>
                           <td><span className="bu-row-num">Row {row._row}</span></td>
                           <td>{row._status === 'valid' ? <span className="bu-status-dot ok">✓ Valid</span> : <div><span className="bu-status-dot err">✗ Error</span><div className="bu-err-list">{row._errors.map((e, j) => <div key={j} className="bu-err-msg">→ {e}</div>)}</div></div>}</td>
-                          <td><strong>{row.first_name} {row.last_name}</strong></td>
+                          <td><strong>{row.name || <span style={{ color: T.red }}>—</span>}</strong></td>
                           <td className="mono">{row.phone || <span style={{ color: T.red }}>—</span>}</td>
-                          <td className="mono">{row.employee_id || <span style={{ color: T.inkLight, fontStyle: 'italic' }}>auto</span>}</td>
+                          <td className="mono">{row.shift_type || <span style={{ color: T.red }}>—</span>}</td>
+                          <td className="mono">{row.monthly_salary ? `AED ${row.monthly_salary}` : <span style={{ color: T.red }}>—</span>}</td>
                           <td style={{ fontSize: 12, maxWidth: 160 }}>{row.location || <span style={{ color: T.red }}>—</span>}</td>
-                          <td className="mono">{row.shift_start && row.shift_end ? `${row.shift_start}–${row.shift_end}` : <span style={{ color: T.red }}>—</span>}</td>
-                          <td className="mono">{row.hourly_rate ? `AED ${row.hourly_rate}` : <span style={{ color: T.red }}>—</span>}</td>
-                          <td className="mono">{row.start_date || <span style={{ color: T.red }}>—</span>}</td>
+                          <td className="mono">{row.vendor || <span style={{ color: T.inkLight }}>—</span>}</td>
+                          <td className="mono">{row.joining_date || <span style={{ color: T.red }}>—</span>}</td>
                         </tr>
                       ))}
                     </tbody>

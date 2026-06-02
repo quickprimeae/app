@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase'
 import { generateSetupToken, buildSetupUrl } from '@/lib/pin'
 import { sendPinSetupInvite } from '@/lib/whatsapp'
+import { hourlyRateFromSalary } from '@/lib/salary'
 
 // ── GET /api/employees ─────────────────────────────────────
 export async function GET(req: NextRequest) {
@@ -50,19 +51,28 @@ export async function POST(req: NextRequest) {
       nationality,
       location_id,
       supervisor_id,
-      hourly_rate,
+      monthly_salary,
+      shift_type,
       shift_days,
-      shift_start,
-      shift_end,
+      branch,
       start_date,
       iban,
       bank_account_name,
     } = body
 
     // Validate required fields
-    if (!tenant_id || !first_name || !last_name || !phone || !hourly_rate) {
+    if (!tenant_id || !first_name || !last_name || !phone || !monthly_salary || !shift_type) {
       return NextResponse.json(
-        { error: 'Missing required fields: first_name, last_name, phone, hourly_rate' },
+        { error: 'Missing required fields: first_name, last_name, phone, monthly_salary, shift_type' },
+        { status: 400 }
+      )
+    }
+
+    // Derive hourly_rate from the monthly salary + shift length.
+    const hourly_rate = hourlyRateFromSalary(monthly_salary, shift_type)
+    if (hourly_rate == null) {
+      return NextResponse.json(
+        { error: 'shift_type must be "8h" or "10h" and monthly_salary a positive number.' },
         { status: 400 }
       )
     }
@@ -97,9 +107,11 @@ export async function POST(req: NextRequest) {
         location_id: location_id || null,
         supervisor_id: supervisor_id || null,
         hourly_rate,
+        monthly_salary,
+        shift_type,
         shift_days,
-        shift_start: shift_start || null,
-        shift_end: shift_end || null,
+        branch: branch || null,
+        // shift_start/shift_end left null — pickers inherit the location default.
         start_date: start_date || new Date().toISOString().split('T')[0],
         iban: iban || null,
         bank_account_name: bank_account_name || null,
@@ -130,6 +142,7 @@ export async function POST(req: NextRequest) {
       success: true,
       employee_id: employee.id,
       employee_number: employee.employee_number,
+      hourly_rate,
       whatsapp_sent: waSent,
       whatsapp_error: waError || null,
       // In development, return the setup URL directly for testing
@@ -154,7 +167,8 @@ export async function PATCH(req: NextRequest) {
 
     const allowed = [
       'first_name', 'last_name', 'phone', 'nationality', 'location_id',
-      'supervisor_id', 'hourly_rate', 'shift_days', 'shift_start', 'shift_end',
+      'supervisor_id', 'hourly_rate', 'monthly_salary', 'shift_type',
+      'shift_days', 'shift_start', 'shift_end', 'branch',
       'iban', 'bank_account_name', 'reference_photo_url', 'has_photo', 'active',
     ]
     const updates: Record<string, any> = {}
