@@ -1,0 +1,387 @@
+'use client'
+// src/app/dashboard/locations/LocationsClient.tsx
+// Locations: filterable list + Dubai pin map + detail panel, with add/edit
+// (modal) and geofence adjustment wired to /api/locations.
+
+import { useState, useMemo } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import type { LocationRow } from '@/lib/locations-data'
+
+const T = {
+  bg: '#0a0f0d', bgCard: '#111815', bgHover: '#161e1a', bgSubtle: '#0f1712',
+  border: '#1e2b24', borderMid: '#243329', tealDark: '#085041', teal: '#0F6E56',
+  tealMid: '#1D9E75', tealBright: '#25D09A', tealText: '#5DCAA5', tealFaint: '#0d1f18',
+  green: '#22c55e', greenBg: '#0d2018', amber: '#f59e0b', amberBg: '#1f1608',
+  red: '#ef4444', redBg: '#1f0d0d', white: '#f0f7f4', whiteMid: '#c8ddd6',
+  dim: '#6b8078', dimMid: '#4a6058',
+}
+
+function pinColor(status: string) {
+  if (status === 'active') return T.tealBright
+  if (status === 'noshow') return T.red
+  if (status === 'late') return T.amber
+  return T.dimMid
+}
+const LAT_MIN = 24.9, LAT_MAX = 25.4, LNG_MIN = 55.0, LNG_MAX = 55.55
+function toPixel(lat: number, lng: number, W: number, H: number): [number, number] {
+  const x = ((lng - LNG_MIN) / (LNG_MAX - LNG_MIN)) * W
+  const y = ((LAT_MAX - lat) / (LAT_MAX - LAT_MIN)) * H
+  return [x, y]
+}
+const MAP_W = 600, MAP_H = 340
+
+type Client = { id: string; name: string }
+type Filter = 'all' | 'active' | 'late' | 'noshow'
+
+const EMPTY_FORM = {
+  id: '', name: '', client_id: '', chain: '', area: '', address: '',
+  lat: '', lng: '', geofence_radius: '150', shift_start: '08:00', shift_end: '19:00', shift_days: 'Mon-Sat',
+}
+
+export default function LocationsClient({ initial, clients }: { initial: LocationRow[]; clients: Client[] }) {
+  const router = useRouter()
+  const ALL = initial
+  const [search, setSearch] = useState('')
+  const [filter, setFilter] = useState<Filter>('all')
+  const [selected, setSelected] = useState<string | null>(null)
+  const [form, setForm] = useState<typeof EMPTY_FORM | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const filtered = useMemo(() => {
+    let d = ALL
+    if (filter !== 'all') d = d.filter((l) => l.status === filter)
+    if (search) {
+      const q = search.toLowerCase()
+      d = d.filter((l) => l.name.toLowerCase().includes(q) || (l.client ?? '').toLowerCase().includes(q) || (l.supervisor ?? '').toLowerCase().includes(q))
+    }
+    return d
+  }, [ALL, filter, search])
+
+  const sel = selected ? ALL.find((l) => l.id === selected) ?? null : null
+  const counts = {
+    all: ALL.length,
+    active: ALL.filter((l) => l.status === 'active').length,
+    late: ALL.filter((l) => l.status === 'late').length,
+    noshow: ALL.filter((l) => l.status === 'noshow').length,
+  }
+
+  function changeFilter(f: Filter) { setFilter(f); setSelected(null) } // bug #5
+
+  function openAdd() {
+    setForm({ ...EMPTY_FORM, client_id: clients[0]?.id ?? '' })
+  }
+  function openEdit(loc: LocationRow) {
+    setForm({
+      id: loc.id, name: loc.name, client_id: clients.find((c) => c.name === loc.client)?.id ?? clients[0]?.id ?? '',
+      chain: loc.chain ?? '', area: loc.area ?? '', address: loc.address ?? '',
+      lat: String(loc.lat), lng: String(loc.lng), geofence_radius: String(loc.geofenceRadius),
+      shift_start: loc.shiftHours.split('–')[0] || '08:00', shift_end: loc.shiftHours.split('–')[1] || '19:00',
+      shift_days: loc.shiftDays ?? 'Mon-Sat',
+    })
+  }
+
+  async function saveForm() {
+    if (!form) return
+    if (!form.name || !form.client_id || !form.lat || !form.lng) {
+      alert('Name, client, latitude and longitude are required.')
+      return
+    }
+    setBusy(true)
+    try {
+      const body: Record<string, any> = {
+        name: form.name, client_id: form.client_id, chain: form.chain || null, area: form.area || null,
+        address: form.address || null, lat: Number(form.lat), lng: Number(form.lng),
+        geofence_radius: Number(form.geofence_radius) || 150,
+        shift_start: `${form.shift_start}:00`, shift_end: `${form.shift_end}:00`, shift_days: form.shift_days,
+      }
+      const isEdit = !!form.id
+      const res = await fetch('/api/locations', {
+        method: isEdit ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(isEdit ? { location_id: form.id, ...body } : body),
+      })
+      if (!res.ok) { alert((await res.json()).error || 'Save failed'); return }
+      setForm(null)
+      router.refresh()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function adjustGeofence(loc: LocationRow) {
+    const v = prompt(`Geofence radius for ${loc.name} (metres):`, String(loc.geofenceRadius))
+    if (v == null) return
+    const radius = Number(v)
+    if (!Number.isFinite(radius) || radius <= 0) { alert('Enter a positive number.'); return }
+    setBusy(true)
+    try {
+      await fetch('/api/locations', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ location_id: loc.id, geofence_radius: radius }),
+      })
+      router.refresh()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <>
+      <style>{css}</style>
+      <div className="lp-root">
+        <header className="lp-topbar">
+          <Link href="/dashboard" className="lp-logo">QUICKPRIME</Link>
+          <div className="lp-divider" />
+          <div className="lp-topbar-title">Locations</div>
+          <div className="lp-topbar-right">
+            <div className="lp-search">
+              <span style={{ fontSize: 13, color: T.dim }}>🔍</span>
+              <input placeholder="Search locations…" value={search} onChange={(e) => setSearch(e.target.value)} />
+            </div>
+            <button className="lp-btn primary" onClick={openAdd}>+ Add location</button>
+          </div>
+        </header>
+
+        <div className="lp-body">
+          <div className="lp-left">
+            <div className="lp-stats-row">
+              <div className="lp-top-stat"><div className="lp-top-stat-val" style={{ color: T.white }}>{counts.all}</div><div className="lp-top-stat-label">Total</div></div>
+              <div className="lp-top-stat"><div className="lp-top-stat-val" style={{ color: T.tealBright }}>{counts.active}</div><div className="lp-top-stat-label">Active</div></div>
+              <div className="lp-top-stat"><div className="lp-top-stat-val" style={{ color: T.amber }}>{counts.late}</div><div className="lp-top-stat-label">Late</div></div>
+              <div className="lp-top-stat"><div className="lp-top-stat-val" style={{ color: T.red }}>{counts.noshow}</div><div className="lp-top-stat-label">No-show</div></div>
+            </div>
+
+            <div className="lp-filter-bar">
+              {([
+                { id: 'all', label: `All (${counts.all})`, dot: T.dim, cls: '' },
+                { id: 'active', label: `Active (${counts.active})`, dot: T.tealBright, cls: '' },
+                { id: 'late', label: `Late (${counts.late})`, dot: T.amber, cls: 'af' },
+                { id: 'noshow', label: `No-show (${counts.noshow})`, dot: T.red, cls: 'rf' },
+              ] as const).map((f) => (
+                <button key={f.id} className={`lp-filter ${filter === f.id ? 'active' : ''} ${filter === f.id && f.cls ? f.cls : ''}`} onClick={() => changeFilter(f.id)}>
+                  <div className="lp-fdot" style={{ background: filter === f.id ? f.dot : T.dimMid }} />{f.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="lp-list">
+              {filtered.map((loc, i) => (
+                <div key={loc.id} className={`lp-list-item s-${loc.status} ${selected === loc.id ? 'selected' : ''}`} onClick={() => setSelected(selected === loc.id ? null : loc.id)}>
+                  <div className="lp-list-num">{i + 1}</div>
+                  <div className="lp-list-info">
+                    <div className="lp-list-name">{loc.name}</div>
+                    <div className="lp-list-meta">
+                      <span>{loc.client ?? '—'}</span><span>·</span>
+                      <span>{loc.supervisor ?? 'No supervisor'}</span><span>·</span>
+                      <span>{loc.geofenceRadius}m fence</span>
+                    </div>
+                  </div>
+                  <div className="lp-list-right">
+                    <div className={`lp-status-dot-label ${loc.status}`}>
+                      {loc.status === 'active' ? '● Active' : loc.status === 'noshow' ? '✗ No-show' : loc.status === 'late' ? '⚠ Late' : '–'}
+                    </div>
+                    <div className="lp-attendance">{loc.clockedIn}/{loc.total}</div>
+                  </div>
+                </div>
+              ))}
+              {filtered.length === 0 && <div style={{ padding: 40, textAlign: 'center', color: T.dim, fontSize: 13 }}>No locations match.</div>}
+            </div>
+          </div>
+
+          <div className="lp-right">
+            <div className="lp-map-area">
+              <div className="lp-map-bg" />
+              <div className="lp-map-label">📍 Dubai — {ALL.length} locations</div>
+              <svg width={MAP_W} height={MAP_H} style={{ position: 'absolute', inset: 0, margin: 'auto' }}>
+                <line x1={0} y1={MAP_H * 0.5} x2={MAP_W} y2={MAP_H * 0.5} stroke={T.border} strokeWidth={1} />
+                <line x1={MAP_W * 0.45} y1={0} x2={MAP_W * 0.45} y2={MAP_H} stroke={T.border} strokeWidth={1} />
+                <rect x={0} y={MAP_H * 0.82} width={MAP_W} height={MAP_H * 0.18} fill={T.tealFaint} opacity={0.6} />
+                <text x={MAP_W * 0.5} y={MAP_H * 0.91} textAnchor="middle" fontSize={10} fill={T.dimMid} fontFamily="DM Mono">Arabian Gulf</text>
+                {ALL.map((loc) => {
+                  const [px, py] = toPixel(loc.lat, loc.lng, MAP_W, MAP_H)
+                  const col = pinColor(loc.status)
+                  const isSel = selected === loc.id
+                  return (
+                    <g key={loc.id} style={{ cursor: 'pointer' }} onClick={() => setSelected(selected === loc.id ? null : loc.id)}>
+                      {isSel && <circle cx={px} cy={py} r={18} fill={col} opacity={0.15} />}
+                      <circle cx={px} cy={py} r={isSel ? 8 : 6} fill={col} stroke={T.bg} strokeWidth={2} />
+                      {isSel && <text x={px} y={py - 14} textAnchor="middle" fontSize={9} fill={T.white} style={{ fontFamily: 'DM Mono' }}>{loc.chain ?? loc.name.split(' ')[0]}</text>}
+                    </g>
+                  )
+                })}
+              </svg>
+              <div className="lp-map-legend">
+                {[{ color: T.tealBright, label: 'Active' }, { color: T.amber, label: 'Late' }, { color: T.red, label: 'No-show' }, { color: T.dimMid, label: 'No shift' }].map((l) => (
+                  <div key={l.label} className="lp-legend-item"><div className="lp-legend-dot" style={{ background: l.color }} />{l.label}</div>
+                ))}
+              </div>
+            </div>
+
+            <div className="lp-detail">
+              {!sel ? (
+                <div className="lp-detail-empty"><span style={{ fontSize: 28 }}>📍</span><span>Select a location to see details</span></div>
+              ) : (
+                <>
+                  <div className="lp-detail-header">
+                    <div>
+                      <div className="lp-detail-title">{sel.name}</div>
+                      <div className="lp-detail-sub">{sel.address ?? sel.area ?? '—'} · {sel.client ?? '—'} · {sel.supervisor ?? 'No supervisor'}</div>
+                    </div>
+                    <div className={`lp-status-dot-label ${sel.status}`} style={{ fontSize: 11 }}>
+                      {sel.status === 'active' ? '● Active' : sel.status === 'noshow' ? '✗ No-show' : sel.status === 'late' ? '⚠ Late' : '–'}
+                    </div>
+                  </div>
+                  <div className="lp-detail-grid">
+                    {[
+                      { label: 'Attendance', val: `${sel.clockedIn}/${sel.total} pickers`, col: sel.clockedIn === sel.total && sel.total > 0 ? T.tealBright : T.amber },
+                      { label: 'Shift', val: sel.shiftHours, col: T.white },
+                      { label: 'Geofence', val: `${sel.geofenceRadius}m radius`, col: T.white },
+                      { label: 'Days', val: sel.shiftDays ?? '—', col: T.white },
+                    ].map((s) => (
+                      <div key={s.label} className="lp-detail-stat"><div className="lp-detail-stat-label">{s.label}</div><div className="lp-detail-stat-val" style={{ color: s.col, fontSize: 13 }}>{s.val}</div></div>
+                    ))}
+                  </div>
+                  <div className="lp-picker-chips">
+                    {sel.pickers.map((p, i) => (
+                      <div key={i} className={`lp-chip ${p.status}`}>
+                        <div className="lp-cdot" style={{ background: p.status === 'in' ? T.tealBright : p.status === 'absent' ? T.red : T.dimMid }} />
+                        {p.name.split(' ')[0]}
+                      </div>
+                    ))}
+                    {sel.pickers.length === 0 && <span style={{ fontSize: 12, color: T.dimMid }}>No pickers assigned</span>}
+                  </div>
+                  <div className="lp-detail-actions">
+                    <button className="lp-act-btn" onClick={() => openEdit(sel)}>✏️ Edit location</button>
+                    <button className="lp-act-btn" onClick={() => adjustGeofence(sel)} disabled={busy}>📏 Adjust geofence</button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {form && (
+          <div className="lp-overlay" onClick={() => setForm(null)}>
+            <div className="lp-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="lp-modal-title">{form.id ? 'Edit location' : 'Add location'}</div>
+              <div className="lp-modal-grid">
+                <Field label="Name *"><input className="lp-input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
+                <Field label="Client *">
+                  <select className="lp-input" value={form.client_id} onChange={(e) => setForm({ ...form, client_id: e.target.value })}>
+                    {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </Field>
+                <Field label="Chain"><input className="lp-input" value={form.chain} onChange={(e) => setForm({ ...form, chain: e.target.value })} /></Field>
+                <Field label="Area"><input className="lp-input" value={form.area} onChange={(e) => setForm({ ...form, area: e.target.value })} /></Field>
+                <Field label="Address" full><input className="lp-input" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} /></Field>
+                <Field label="Latitude *"><input className="lp-input" value={form.lat} onChange={(e) => setForm({ ...form, lat: e.target.value })} /></Field>
+                <Field label="Longitude *"><input className="lp-input" value={form.lng} onChange={(e) => setForm({ ...form, lng: e.target.value })} /></Field>
+                <Field label="Geofence (m)"><input className="lp-input" value={form.geofence_radius} onChange={(e) => setForm({ ...form, geofence_radius: e.target.value })} /></Field>
+                <Field label="Shift days"><input className="lp-input" value={form.shift_days} onChange={(e) => setForm({ ...form, shift_days: e.target.value })} /></Field>
+                <Field label="Shift start"><input className="lp-input" type="time" value={form.shift_start} onChange={(e) => setForm({ ...form, shift_start: e.target.value })} /></Field>
+                <Field label="Shift end"><input className="lp-input" type="time" value={form.shift_end} onChange={(e) => setForm({ ...form, shift_end: e.target.value })} /></Field>
+              </div>
+              <div className="lp-modal-actions">
+                <button className="lp-btn ghost" onClick={() => setForm(null)}>Cancel</button>
+                <button className="lp-btn primary" onClick={saveForm} disabled={busy}>{busy ? 'Saving…' : form.id ? 'Save changes' : 'Create location'}</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  )
+}
+
+function Field({ label, full, children }: { label: string; full?: boolean; children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 5, gridColumn: full ? '1 / -1' : undefined }}>
+      <label style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: T.dim }}>{label}</label>
+      {children}
+    </div>
+  )
+}
+
+const css = `
+*,*::before,*::after{box-sizing:border-box}
+.lp-root{font-family:'DM Sans',sans-serif;background:${T.bg};min-height:100vh;color:${T.white};display:flex;flex-direction:column}
+.lp-topbar{background:${T.bgCard};border-bottom:1px solid ${T.border};display:flex;align-items:center;padding:0 28px;height:56px;gap:16px;position:sticky;top:0;z-index:100}
+.lp-logo{font-family:'DM Mono',monospace;font-size:13px;color:${T.tealBright};letter-spacing:.06em;text-decoration:none}
+.lp-divider{width:1px;height:20px;background:${T.border}}
+.lp-topbar-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:600;color:${T.whiteMid}}
+.lp-topbar-right{margin-left:auto;display:flex;align-items:center;gap:12px}
+.lp-search{display:flex;align-items:center;gap:8px;background:${T.bgSubtle};border:1px solid ${T.border};border-radius:8px;padding:7px 12px;width:220px;transition:border-color .15s}
+.lp-search:focus-within{border-color:${T.teal}}
+.lp-search input{background:none;border:none;outline:none;font-family:'DM Sans',sans-serif;font-size:13px;color:${T.white};width:100%}
+.lp-search input::placeholder{color:${T.dimMid}}
+.lp-btn{padding:8px 16px;border-radius:8px;border:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;transition:opacity .12s}
+.lp-btn.primary{background:${T.tealMid};color:#fff}.lp-btn.primary:hover{opacity:.85}
+.lp-btn.primary:disabled{opacity:.5;cursor:not-allowed}
+.lp-btn.ghost{background:${T.bgSubtle};color:${T.whiteMid};border:1px solid ${T.border}}.lp-btn.ghost:hover{border-color:${T.teal};color:${T.tealBright}}
+.lp-body{display:flex;flex:1;overflow:hidden;height:calc(100vh - 56px)}
+.lp-left{width:420px;flex-shrink:0;border-right:1px solid ${T.border};display:flex;flex-direction:column;overflow:hidden}
+.lp-right{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.lp-filter-bar{padding:14px 16px;border-bottom:1px solid ${T.border};display:flex;gap:6px;flex-wrap:wrap}
+.lp-filter{display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:16px;border:1px solid ${T.border};background:none;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;color:${T.dim};cursor:pointer;transition:all .12s}
+.lp-filter:hover{border-color:${T.teal};color:${T.tealText}}
+.lp-filter.active{background:${T.tealFaint};border-color:${T.teal};color:${T.tealBright}}
+.lp-filter.active.rf{background:${T.redBg};border-color:#5a1a1a;color:${T.red}}
+.lp-filter.active.af{background:${T.amberBg};border-color:#5a3d0a;color:${T.amber}}
+.lp-fdot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.lp-list{flex:1;overflow-y:auto}
+.lp-list-item{padding:14px 16px;border-bottom:1px solid ${T.border};cursor:pointer;transition:background .12s;display:flex;align-items:flex-start;gap:12px}
+.lp-list-item:hover{background:${T.bgHover}}
+.lp-list-item.selected{background:${T.tealFaint}}
+.lp-list-item.s-noshow{border-left:3px solid ${T.red};padding-left:13px}
+.lp-list-item.s-late{border-left:3px solid ${T.amber};padding-left:13px}
+.lp-list-num{font-family:'DM Mono',monospace;font-size:11px;color:${T.dimMid};width:24px;flex-shrink:0;padding-top:2px}
+.lp-list-info{flex:1;min-width:0}
+.lp-list-name{font-size:13px;font-weight:600;color:${T.white};margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lp-list-meta{font-size:11px;color:${T.dim};display:flex;gap:8px;flex-wrap:wrap}
+.lp-list-right{text-align:right;flex-shrink:0}
+.lp-status-dot-label{display:flex;align-items:center;gap:5px;font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
+.lp-status-dot-label.active{background:${T.greenBg};color:${T.green};border:1px solid #1a4030}
+.lp-status-dot-label.noshow{background:${T.redBg};color:${T.red};border:1px solid #3d1a1a}
+.lp-status-dot-label.late{background:${T.amberBg};color:${T.amber};border:1px solid #5a3d0a}
+.lp-status-dot-label.noshift{background:${T.bgSubtle};color:${T.dimMid};border:1px solid ${T.border}}
+.lp-attendance{font-family:'DM Mono',monospace;font-size:12px;color:${T.tealText};margin-top:4px}
+.lp-map-area{flex:1;background:${T.bgSubtle};border-bottom:1px solid ${T.border};position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.lp-map-bg{position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 39px,${T.border} 39px,${T.border} 40px),repeating-linear-gradient(90deg,transparent,transparent 39px,${T.border} 39px,${T.border} 40px);opacity:.4}
+.lp-map-label{position:absolute;top:16px;left:16px;font-family:'DM Mono',monospace;font-size:11px;color:${T.dim};background:${T.bgCard};padding:5px 10px;border-radius:6px;border:1px solid ${T.border}}
+.lp-map-legend{position:absolute;bottom:16px;right:16px;background:${T.bgCard};border:1px solid ${T.border};border-radius:8px;padding:10px 14px;display:flex;flex-direction:column;gap:6px}
+.lp-legend-item{display:flex;align-items:center;gap:7px;font-size:11px;color:${T.dim}}
+.lp-legend-dot{width:10px;height:10px;border-radius:50%}
+.lp-detail{height:280px;border-top:1px solid ${T.border};overflow-y:auto;padding:18px 22px;background:${T.bgCard}}
+.lp-detail-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:${T.dimMid};gap:8px;font-size:14px}
+.lp-detail-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px}
+.lp-detail-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:600;color:${T.white};margin-bottom:3px}
+.lp-detail-sub{font-size:12px;color:${T.dim}}
+.lp-detail-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.lp-detail-stat{background:${T.bgSubtle};border:1px solid ${T.border};border-radius:8px;padding:10px 12px}
+.lp-detail-stat-label{font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:${T.dim};margin-bottom:3px}
+.lp-detail-stat-val{font-family:'DM Mono',monospace;font-size:16px;font-weight:500;color:${T.white}}
+.lp-picker-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.lp-chip{display:flex;align-items:center;gap:5px;padding:4px 9px;border-radius:6px;font-size:11px;font-weight:500;border:1px solid transparent}
+.lp-chip.in{background:#0a1f14;color:${T.tealText};border-color:#1a3a28}
+.lp-chip.absent{background:${T.redBg};color:${T.red};border-color:#3d1a1a}
+.lp-chip.expected{background:${T.bgSubtle};color:${T.dimMid};border-color:${T.border}}
+.lp-cdot{width:5px;height:5px;border-radius:50%}
+.lp-detail-actions{display:flex;gap:8px}
+.lp-act-btn{padding:8px 14px;border-radius:7px;border:1px solid ${T.border};background:none;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;color:${T.whiteMid};cursor:pointer;transition:all .12s;display:flex;align-items:center;gap:6px}
+.lp-act-btn:hover{border-color:${T.tealMid};color:${T.tealBright}}
+.lp-act-btn:disabled{opacity:.5;cursor:not-allowed}
+.lp-stats-row{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid ${T.border}}
+.lp-top-stat{padding:14px 16px;border-right:1px solid ${T.border}}
+.lp-top-stat:last-child{border-right:none}
+.lp-top-stat-val{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;line-height:1;margin-bottom:3px}
+.lp-top-stat-label{font-size:10px;color:${T.dim};font-weight:600;letter-spacing:.05em;text-transform:uppercase}
+.lp-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;display:flex;align-items:center;justify-content:center;padding:24px}
+.lp-modal{width:100%;max-width:620px;max-height:90vh;overflow-y:auto;background:${T.bgCard};border:1px solid ${T.borderMid};border-radius:14px;padding:24px}
+.lp-modal-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:600;color:${T.white};margin-bottom:18px}
+.lp-modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px}
+.lp-input{background:${T.bgSubtle};border:1px solid ${T.border};border-radius:8px;padding:10px 12px;font-family:'DM Sans',sans-serif;font-size:14px;color:${T.white};outline:none;width:100%}
+.lp-input:focus{border-color:${T.teal}}
+.lp-modal-actions{display:flex;justify-content:flex-end;gap:10px}
+`

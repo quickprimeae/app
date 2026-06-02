@@ -136,3 +136,44 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+
+// ── PATCH /api/employees ───────────────────────────────────
+// Update editable fields, or deactivate (active:false + deactivated_at).
+export async function PATCH(req: NextRequest) {
+  const supabase = createServerSupabaseClient()
+
+  try {
+    const { employee_id, ...rest } = await req.json()
+    if (!employee_id) {
+      return NextResponse.json({ error: 'employee_id required' }, { status: 400 })
+    }
+
+    const allowed = [
+      'first_name', 'last_name', 'phone', 'nationality', 'location_id',
+      'supervisor_id', 'hourly_rate', 'shift_days', 'iban', 'bank_account_name',
+      'reference_photo_url', 'has_photo', 'active',
+    ]
+    const updates: Record<string, any> = {}
+    for (const k of allowed) if (k in rest) updates[k] = rest[k]
+
+    // Stamp deactivation.
+    if ('active' in updates && updates.active === false) {
+      updates.deactivated_at = new Date().toISOString()
+      if (rest.deactivation_reason) updates.deactivation_reason = rest.deactivation_reason
+    }
+    if ('active' in updates && updates.active === true) {
+      updates.deactivated_at = null
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
+    }
+
+    const { error } = await supabase.from('employees').update(updates).eq('id', employee_id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ success: true })
+  } catch (err) {
+    console.error('Employee update error:', err)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}

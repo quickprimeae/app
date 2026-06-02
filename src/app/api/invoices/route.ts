@@ -1,12 +1,16 @@
 // src/app/api/invoices/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase'
+import { getOpsContext } from '@/lib/ops'
 
-// GET /api/invoices
+// GET /api/invoices  (tenant from session)
 export async function GET(req: NextRequest) {
+  const ctx = await getOpsContext()
+  if (!ctx?.opsUser) return NextResponse.json({ error: 'Not authorized' }, { status: 401 })
+  const tenant_id = ctx.opsUser.tenant_id
+
   const supabase = createServerSupabaseClient()
   const { searchParams } = new URL(req.url)
-  const tenant_id = searchParams.get('tenant_id')
   const month = searchParams.get('month')
   const year = searchParams.get('year')
 
@@ -17,9 +21,9 @@ export async function GET(req: NextRequest) {
       client:clients(id, name, legal_name, email, trn),
       line_items:invoice_line_items(*)
     `)
+    .eq('tenant_id', tenant_id)
     .order('created_at', { ascending: false })
 
-  if (tenant_id) query = query.eq('tenant_id', tenant_id)
   if (month) query = query.eq('period_month', parseInt(month))
   if (year) query = query.eq('period_year', parseInt(year))
 
@@ -32,14 +36,17 @@ export async function GET(req: NextRequest) {
 
 // POST /api/invoices — generate invoice from verified shift data
 export async function POST(req: NextRequest) {
+  const ctx = await getOpsContext()
+  if (!ctx?.opsUser) return NextResponse.json({ error: 'Not authorized' }, { status: 401 })
   const supabase = createServerSupabaseClient()
 
   try {
-    const { tenant_id, client_id, month, year, vat_rate = 5, notes } = await req.json()
+    const { client_id, month, year, vat_rate = 5, notes } = await req.json()
+    const tenant_id = ctx.opsUser.tenant_id
 
-    if (!tenant_id || !client_id || !month || !year) {
+    if (!client_id || !month || !year) {
       return NextResponse.json(
-        { error: 'tenant_id, client_id, month, year required' },
+        { error: 'client_id, month, year required' },
         { status: 400 }
       )
     }
@@ -150,6 +157,8 @@ export async function POST(req: NextRequest) {
 
 // PATCH /api/invoices — update invoice status
 export async function PATCH(req: NextRequest) {
+  const ctx = await getOpsContext()
+  if (!ctx?.opsUser) return NextResponse.json({ error: 'Not authorized' }, { status: 401 })
   const supabase = createServerSupabaseClient()
 
   try {
@@ -163,6 +172,7 @@ export async function PATCH(req: NextRequest) {
       .from('invoices')
       .update(updates)
       .eq('id', invoice_id)
+      .eq('tenant_id', ctx.opsUser.tenant_id) // scope to tenant
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 

@@ -1,21 +1,22 @@
 // src/app/api/payroll/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase'
+import { getOpsContext } from '@/lib/ops'
 
-// GET /api/payroll?tenant_id=&month=&year=
+// GET /api/payroll?month=&year=  (tenant from session)
 // Returns payroll summary from monthly_hours view
 export async function GET(req: NextRequest) {
+  const ctx = await getOpsContext()
+  if (!ctx?.opsUser) return NextResponse.json({ error: 'Not authorized' }, { status: 401 })
+  const tenant_id = ctx.opsUser.tenant_id
+
   const supabase = createServerSupabaseClient()
   const { searchParams } = new URL(req.url)
-  const tenant_id = searchParams.get('tenant_id')
   const month = searchParams.get('month')
   const year = searchParams.get('year')
 
-  if (!tenant_id || !month || !year) {
-    return NextResponse.json(
-      { error: 'tenant_id, month, and year are required' },
-      { status: 400 }
-    )
+  if (!month || !year) {
+    return NextResponse.json({ error: 'month and year are required' }, { status: 400 })
   }
 
   // Get hours from view
@@ -50,10 +51,14 @@ export async function GET(req: NextRequest) {
 
 // POST /api/payroll/lock — lock a payroll period
 export async function POST(req: NextRequest) {
+  const ctx = await getOpsContext()
+  if (!ctx?.opsUser) return NextResponse.json({ error: 'Not authorized' }, { status: 401 })
   const supabase = createServerSupabaseClient()
 
   try {
-    const { tenant_id, month, year, locked_by } = await req.json()
+    const { month, year } = await req.json()
+    const tenant_id = ctx.opsUser.tenant_id
+    const locked_by = ctx.opsUser.id
 
     // Check no disputed or pending shifts remain
     const startDate = `${year}-${String(month).padStart(2,'0')}-01`
