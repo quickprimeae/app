@@ -294,7 +294,7 @@ export default function EmployeesClient({ initial }: { initial: EmployeeRow[] })
                       { label: 'Start date', val: fmtDate(selectedEmp.startDate) },
                       { label: 'Location', val: selectedEmp.location },
                       { label: 'Supervisor', val: selectedEmp.supervisor ?? 'Unassigned' },
-                      { label: 'Shift', val: `${selectedEmp.shiftHours} · ${selectedEmp.shiftDays ?? '—'}` },
+                      { label: 'Shift', val: `${selectedEmp.shiftHours} · ${selectedEmp.shiftDays ?? '—'}${selectedEmp.personalShift ? ' (personal)' : ' (location default)'}` },
                       { label: 'Hourly rate', val: `AED ${selectedEmp.hourlyRate}/hr`, mono: true },
                       { label: 'PIN', val: selectedEmp.pinSet ? '✓ set up' : '⚠ not set' },
                     ].map((c) => (

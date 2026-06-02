@@ -18,8 +18,19 @@ type InRow = {
   start_date?: string
   location?: string
   shift_days?: string
+  shift_start?: string
+  shift_end?: string
   hourly_rate?: string | number
   supervisor?: string
+}
+
+// "8:00" / "08:00" / "08:00:00" -> "08:00:00" (Postgres time); blank -> null
+function normTime(t?: string): string | null {
+  const v = t?.trim()
+  if (!v) return null
+  const m = v.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/)
+  if (!m) return null
+  return `${m[1].padStart(2, '0')}:${m[2]}:${m[3] ?? '00'}`
 }
 
 export async function POST(req: NextRequest) {
@@ -82,6 +93,8 @@ export async function POST(req: NextRequest) {
           supervisor_id,
           hourly_rate: r.hourly_rate ? Number(r.hourly_rate) : 0,
           shift_days: r.shift_days?.trim() || null,
+          shift_start: normTime(r.shift_start),
+          shift_end: normTime(r.shift_end),
           start_date: r.start_date?.trim() || new Date().toISOString().split('T')[0],
           pin_setup_token_hash: tokenHash,
           pin_setup_expires: expires.toISOString(),

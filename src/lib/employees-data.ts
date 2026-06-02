@@ -22,6 +22,7 @@ export type EmployeeRow = {
   hourlyRate: number
   shiftDays: string | null
   shiftHours: string
+  personalShift: boolean
   status: EmployeeStatus
   clockedInAt: string | null
   hoursThisMonth: number
@@ -47,7 +48,7 @@ export async function getEmployeesList(tenantId: string): Promise<EmployeeRow[]>
   const [empRes, locRes, evtRes, hoursRes] = await Promise.all([
     supabase
       .from('employees')
-      .select('id, employee_number, first_name, last_name, phone, nationality, location_id, hourly_rate, shift_days, has_photo, active, pin_set, start_date, supervisor:ops_users(name)')
+      .select('id, employee_number, first_name, last_name, phone, nationality, location_id, hourly_rate, shift_days, shift_start, shift_end, has_photo, active, pin_set, start_date, supervisor:ops_users(name)')
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false }),
     supabase
@@ -86,11 +87,17 @@ export async function getEmployeesList(tenantId: string): Promise<EmployeeRow[]>
     const ev = clockByEmp.get(e.id)
     const hours = hoursByEmp.get(e.id)
 
+    // Effective shift = employee's own times if set, else the location default.
+    const effStart: string | null = e.shift_start ?? loc?.shift_start ?? null
+    const effEnd: string | null = e.shift_end ?? loc?.shift_end ?? null
+
     let status: EmployeeStatus = 'absent'
     if (ev) {
-      const shiftStartMin = timeToMinutes(loc?.shift_start ?? null)
+      const shiftStartMin = timeToMinutes(effStart)
+      // Compare clock-in against the shift start in GST (UTC+4); shifts never
+      // cross midnight.
       const d = new Date(ev.timestamp)
-      const clockMin = d.getUTCHours() * 60 + d.getUTCMinutes()
+      const clockMin = (d.getUTCHours() * 60 + d.getUTCMinutes() + 240) % 1440
       status = shiftStartMin != null && clockMin > shiftStartMin + 5 ? 'late' : 'active'
     }
 
@@ -114,8 +121,8 @@ export async function getEmployeesList(tenantId: string): Promise<EmployeeRow[]>
       startDate: e.start_date ?? null,
       hourlyRate: rate,
       shiftDays: e.shift_days ?? null,
-      shiftHours:
-        loc?.shift_start && loc?.shift_end ? `${loc.shift_start.slice(0, 5)}–${loc.shift_end.slice(0, 5)}` : '—',
+      shiftHours: effStart && effEnd ? `${effStart.slice(0, 5)}–${effEnd.slice(0, 5)}` : '—',
+      personalShift: !!(e.shift_start && e.shift_end),
       status,
       clockedInAt: ev?.timestamp ?? null,
       hoursThisMonth,

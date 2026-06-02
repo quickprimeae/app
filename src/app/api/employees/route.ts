@@ -52,6 +52,8 @@ export async function POST(req: NextRequest) {
       supervisor_id,
       hourly_rate,
       shift_days,
+      shift_start,
+      shift_end,
       start_date,
       iban,
       bank_account_name,
@@ -96,6 +98,8 @@ export async function POST(req: NextRequest) {
         supervisor_id: supervisor_id || null,
         hourly_rate,
         shift_days,
+        shift_start: shift_start || null,
+        shift_end: shift_end || null,
         start_date: start_date || new Date().toISOString().split('T')[0],
         iban: iban || null,
         bank_account_name: bank_account_name || null,
@@ -150,8 +154,8 @@ export async function PATCH(req: NextRequest) {
 
     const allowed = [
       'first_name', 'last_name', 'phone', 'nationality', 'location_id',
-      'supervisor_id', 'hourly_rate', 'shift_days', 'iban', 'bank_account_name',
-      'reference_photo_url', 'has_photo', 'active',
+      'supervisor_id', 'hourly_rate', 'shift_days', 'shift_start', 'shift_end',
+      'iban', 'bank_account_name', 'reference_photo_url', 'has_photo', 'active',
     ]
     const updates: Record<string, any> = {}
     for (const k of allowed) if (k in rest) updates[k] = rest[k]

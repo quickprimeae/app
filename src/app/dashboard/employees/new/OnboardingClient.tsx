@@ -75,6 +75,8 @@ export default function OnboardingClient({ tenantId, locations, supervisors }: {
           supervisor_id: data.supervisorId || null,
           hourly_rate: Number(data.hourlyRate),
           shift_days: data.shiftDays,
+          shift_start: data.shiftStart ? `${data.shiftStart}:00` : null,
+          shift_end: data.shiftEnd ? `${data.shiftEnd}:00` : null,
           start_date: data.startDate,
         }),
       })
@@ -183,7 +185,7 @@ export default function OnboardingClient({ tenantId, locations, supervisors }: {
                       <Field label="Shift days"><select className="ob-select" value={data.shiftDays} onChange={(e) => onChange('shiftDays', e.target.value)}>{['Mon-Fri', 'Mon-Sat', 'Sun-Thu', '7 days'].map((d) => <option key={d} value={d}>{d}</option>)}</select></Field>
                       <Field label="Supervisor"><select className="ob-select" value={data.supervisorId} onChange={(e) => onChange('supervisorId', e.target.value)}><option value="">Assign supervisor</option>{supervisors.map((s) => <option key={s.id} value={s.id}>{s.name ?? s.id}</option>)}</select></Field>
                     </div>
-                    <div className="ob-info-box teal"><span className="ob-info-box-icon">📍</span><div className="ob-info-box-text">Shift times shown here are informational — the picker inherits the shift and GPS geofence configured on the location record.</div></div>
+                    <div className="ob-info-box teal"><span className="ob-info-box-icon">🕒</span><div className="ob-info-box-text">These are <strong>this picker&apos;s</strong> shift times — staff at the same location can work different shifts. Leave them at the location default if they work standard hours. The GPS geofence is set on the location record.</div></div>
                   </div>
                 )}
 

@@ -76,7 +76,7 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
       .order('name', { ascending: true }),
     supabase
       .from('employees')
-      .select('id, first_name, last_name, employee_number, location_id, supervisor:ops_users(name)')
+      .select('id, first_name, last_name, employee_number, location_id, shift_start, shift_end, supervisor:ops_users(name)')
       .eq('tenant_id', tenantId)
       .eq('active', true)
       .eq('role', 'picker'),
@@ -115,27 +115,55 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
     }
   }
 
+  // Current time-of-day in Gulf Standard Time (UTC+4) to decide whether a
+  // shift has started. Shift `time` columns are GST. No overnight shifts, so a
+  // same-day minutes-since-midnight comparison is sufficient.
+  const nowD = new Date()
+  const nowMin = (nowD.getUTCHours() * 60 + nowD.getUTCMinutes() + 240) % 1440
+  const toMin = (t: string | null): number | null => {
+    if (!t) return null
+    const [h, m] = t.split(':').map(Number)
+    return h * 60 + m
+  }
+
   const dashLocations: DashLocation[] = locations.map((loc: any) => {
     const locEmps = employees.filter((e: any) => e.location_id === loc.id)
     const total = locEmps.length
     let clockedIn = 0
-
-    // Provisional status pass to label individual pickers.
-    const inCount = locEmps.filter((e: any) => byEmployee.has(e.id)).length
-    const status: LocationStatus =
-      total === 0 ? 'noshift' : inCount === 0 ? 'noshow' : inCount < total ? 'late' : 'active'
+    let missing = 0 // shift has started but no clock-in
 
     const pickers: DashPicker[] = locEmps.map((e: any) => {
       const ev = byEmployee.get(e.id)
-      if (ev) clockedIn++
+      // Effective shift = the employee's own time if set, else the location's.
+      const startMin = toMin(e.shift_start ?? loc.shift_start ?? null)
+      const shiftStarted = startMin == null ? true : nowMin >= startMin
+      let pstatus: 'in' | 'absent' | 'expected'
+      if (ev) {
+        clockedIn++
+        pstatus = 'in'
+      } else if (shiftStarted) {
+        missing++
+        pstatus = 'absent' // due now and not here = no-show
+      } else {
+        pstatus = 'expected' // shift hasn't started yet
+      }
       return {
         id: e.employee_number || e.id.slice(0, 8),
         name: `${e.first_name} ${e.last_name}`.trim(),
-        status: ev ? 'in' : status === 'noshow' ? 'absent' : 'expected',
+        status: pstatus,
         clockedInAt: ev?.timestamp ?? null,
         flagged: !!ev?.flagged,
       }
     })
+
+    // Location status from shift-aware counts: pickers not yet due don't count
+    // as no-shows.
+    const status: LocationStatus =
+      total === 0 ? 'noshift'
+      : clockedIn === total ? 'active'
+      : missing === 0 ? 'active'        // everyone due is in; rest not due yet
+      : clockedIn === 0 ? 'noshow'      // nobody who's due has shown up
+      : 'late'                          // some due pickers still missing
 
     const supervisor =
       (locEmps.find((e: any) => e.supervisor?.name)?.supervisor?.name as string) ?? null
