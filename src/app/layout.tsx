@@ -3,7 +3,7 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'QuickPrime',
+  title: 'OpsPro',
   description: 'Workforce Management Platform',
 }
 

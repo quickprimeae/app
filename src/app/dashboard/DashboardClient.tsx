@@ -152,30 +152,12 @@ export default function DashboardClient({
 
   const selectedLoc: DashLocation | null = selected ? locations.find((l) => l.id === selected) ?? null : null
 
-  const NAV_OPS = [
-    { id: 'dashboard', icon: '⬛', label: 'Live dashboard', href: '/dashboard', badge: kpis.noshow + kpis.late > 0 ? kpis.noshow + kpis.late : null, badgeType: 'red' },
-    { id: 'employees', icon: '👥', label: 'Employees', href: '/dashboard/employees', badge: null, badgeType: 'red' },
-    { id: 'locations', icon: '📍', label: 'Locations', href: '/dashboard/locations', badge: null, badgeType: 'red' },
-    { id: 'alerts', icon: '🔔', label: 'All alerts', href: '/dashboard/alerts', badge: alerts.length || null, badgeType: 'amber' },
-  ]
-  const NAV_PAYROLL = [
-    { id: 'hours', icon: '🕐', label: 'Hours & verification', href: '/dashboard/payroll/hours' },
-    { id: 'invoices', icon: '🧾', label: 'Invoices', href: '/dashboard/invoices' },
-    { id: 'payroll', icon: '💰', label: 'Payroll summary', href: '/dashboard/payroll' },
-  ]
-  const NAV_ADMIN = [
-    { id: 'onboarding', icon: '➕', label: 'Add employees', href: '/dashboard/employees/new' },
-    { id: 'invites', icon: '🔗', label: 'Pending invites', href: '/dashboard/employees/invites' },
-  ]
-
   return (
     <>
       <style>{css}</style>
       <div className="db-root">
         {/* Topbar */}
         <header className="db-topbar">
-          <div className="db-logo">QUICKPRIME</div>
-          <div className="db-topbar-divider" />
           <div className="db-live-badge">
             <div className="db-live-dot" />
             Live
@@ -195,38 +177,6 @@ export default function DashboardClient({
             <button className="db-btn-sm" onClick={signOut}>Sign out</button>
           </div>
         </header>
-
-        {/* Sidebar */}
-        <aside className="db-sidebar">
-          <div className="db-nav-section">
-            <div className="db-nav-label">Operations</div>
-            {NAV_OPS.map((n) => (
-              <Link key={n.id} href={n.href} className={`db-nav-item ${n.id === 'dashboard' ? 'active' : ''}`}>
-                <span className="db-nav-icon">{n.icon}</span>
-                {n.label}
-                {n.badge && <span className={`db-nav-badge ${n.badgeType === 'amber' ? 'amber' : ''}`}>{n.badge}</span>}
-              </Link>
-            ))}
-          </div>
-          <div className="db-nav-section">
-            <div className="db-nav-label">Payroll</div>
-            {NAV_PAYROLL.map((n) => (
-              <Link key={n.id} href={n.href} className="db-nav-item">
-                <span className="db-nav-icon">{n.icon}</span>
-                {n.label}
-              </Link>
-            ))}
-          </div>
-          <div className="db-nav-section">
-            <div className="db-nav-label">Admin</div>
-            {NAV_ADMIN.map((n) => (
-              <Link key={n.id} href={n.href} className="db-nav-item">
-                <span className="db-nav-icon">{n.icon}</span>
-                {n.label}
-              </Link>
-            ))}
-          </div>
-        </aside>
 
         {/* Main */}
         <main className="db-main">
@@ -456,8 +406,8 @@ export default function DashboardClient({
 
 const css = `
 *, *::before, *::after { box-sizing: border-box; }
-.db-root { font-family: 'DM Sans', sans-serif; background: ${T.bg}; min-height: 100vh; color: ${T.white}; display: grid; grid-template-columns: 220px 1fr; grid-template-rows: auto 1fr; }
-.db-topbar { grid-column: 1 / -1; background: ${T.bgCard}; border-bottom: 1px solid ${T.border}; display: flex; align-items: center; padding: 0 24px; height: 56px; gap: 20px; position: sticky; top: 0; z-index: 100; }
+.db-root { font-family: 'DM Sans', sans-serif; background: ${T.bg}; min-height: 100vh; color: ${T.white}; display: flex; flex-direction: column; }
+.db-topbar { background: ${T.bgCard}; border-bottom: 1px solid ${T.border}; display: flex; align-items: center; padding: 0 24px; height: 56px; gap: 20px; position: sticky; top: 0; z-index: 100; }
 .db-logo { font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 500; color: ${T.tealBright}; letter-spacing: 0.06em; margin-right: 8px; }
 .db-topbar-divider { width: 1px; height: 20px; background: ${T.border}; }
 .db-live-badge { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: ${T.tealBright}; letter-spacing: 0.06em; text-transform: uppercase; }

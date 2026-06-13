@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase'
 import { PILOT_TENANT_ID } from '@/lib/config'
+import { normalizePhone } from '@/lib/phone'
 
 export async function GET(req: NextRequest) {
   const supabase = createServerSupabaseClient()
@@ -17,7 +18,14 @@ export async function GET(req: NextRequest) {
   if (!phoneRaw) {
     return NextResponse.json({ error: 'phone is required' }, { status: 400 })
   }
-  const phone = phoneRaw.trim()
+  // Accept whatever format the picker typed; match against the stored E.164 value.
+  const phone = normalizePhone(phoneRaw)
+  if (!phone) {
+    return NextResponse.json(
+      { error: 'Enter a valid UAE mobile number (e.g. 05XXXXXXXX).' },
+      { status: 400 }
+    )
+  }
 
   const { data: employee, error } = await supabase
     .from('employees')

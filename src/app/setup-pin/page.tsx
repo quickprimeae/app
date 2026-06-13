@@ -137,7 +137,7 @@ function SetupPinFlow() {
       <style>{css}</style>
       <div className="sp-phone">
         <div className="sp-header">
-          <div className="sp-logo">QUICKPRIME</div>
+          <div className="sp-logo">OPSPRO</div>
         </div>
 
         <div className="sp-body">
@@ -190,7 +190,7 @@ function SetupPinFlow() {
             <>
               <div className="sp-success">✓</div>
               <div className="sp-title">PIN set{firstName ? `, ${firstName}` : ''}!</div>
-              <div className="sp-sub">You can now clock in from the QuickPrime app.</div>
+              <div className="sp-sub">You can now clock in from the OpsPro app.</div>
               <a className="sp-btn" href="/clock-in">Go to clock-in</a>
             </>
           )}

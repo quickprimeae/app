@@ -4,7 +4,6 @@
 // (POST /api/invoices), and update status to sent/paid (PATCH).
 
 import { useState, useEffect, useCallback } from 'react'
-import Link from 'next/link'
 
 const T = {
   bg: '#0a0f0d', bgCard: '#111815', bgHover: '#161e1a', bgSubtle: '#0f1712',
@@ -94,8 +93,6 @@ export default function InvoicesClient({ tenantId, clients }: { tenantId: string
       <style>{css}</style>
       <div className="iv-root">
         <header className="iv-topbar">
-          <Link href="/dashboard" className="iv-logo">QUICKPRIME</Link>
-          <div className="iv-divider" />
           <div className="iv-title">Invoices</div>
           <div className="iv-right">
             <button className="iv-btn primary" onClick={() => { setGenOpen(true); setMsg(null) }}>+ Generate invoice</button>

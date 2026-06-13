@@ -42,7 +42,7 @@ function LoginForm() {
     <div className="lg-root">
       <style>{css}</style>
       <form className="lg-card" onSubmit={handleSubmit}>
-        <div className="lg-logo">QUICKPRIME</div>
+        <div className="lg-logo">OPSPRO</div>
         <h1 className="lg-title">Ops sign in</h1>
         <p className="lg-sub">Workforce management dashboard</p>
 

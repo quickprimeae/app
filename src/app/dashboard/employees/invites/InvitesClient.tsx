@@ -5,6 +5,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { phoneToWaDigits } from '@/lib/phone'
 
 const T = {
   bg: '#0a0f0d', bgCard: '#111815', bgHover: '#161e1a', bgSubtle: '#0f1712',
@@ -32,7 +33,7 @@ function expiryLabel(iso: string | null) {
 }
 
 function waMessage(firstName: string, url: string) {
-  return `Hi ${firstName}, welcome to QuickPrime. Set up your clock-in PIN here: ${url}\n\nThis link expires in 24 hours. Do not share it with anyone.`
+  return `Hi ${firstName}, welcome to OpsPro. Set up your clock-in PIN here: ${url}\n\nThis link expires in 24 hours. Do not share it with anyone.`
 }
 
 export default function InvitesClient({ initial }: { initial: InviteRow[] }) {
@@ -77,7 +78,7 @@ export default function InvitesClient({ initial }: { initial: InviteRow[] }) {
   }
 
   function waHref(row: InviteRow) {
-    const digits = row.phone.replace(/[^\d]/g, '')
+    const digits = phoneToWaDigits(row.phone)
     return `https://wa.me/${digits}?text=${encodeURIComponent(waMessage(row.name.split(' ')[0], links[row.id]))}`
   }
 
@@ -86,8 +87,6 @@ export default function InvitesClient({ initial }: { initial: InviteRow[] }) {
       <style>{css}</style>
       <div className="iv-root">
         <header className="iv-topbar">
-          <Link href="/dashboard" className="iv-logo">QUICKPRIME</Link>
-          <div className="iv-divider" />
           <div className="iv-title">Pending PIN invites</div>
           <div className="iv-right">
             <Link href="/dashboard/employees" className="iv-btn ghost">All employees →</Link>

@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase'
 import { getOpsContext } from '@/lib/ops'
 import { getLocationsList } from '@/lib/locations-data'
+import { isValidShiftWindow } from '@/lib/shift'
 
 export async function GET() {
   const ctx = await getOpsContext()
@@ -25,6 +26,11 @@ export async function POST(req: NextRequest) {
     if (!b.name || !b.client_id || b.lat == null || b.lng == null) {
       return NextResponse.json({ error: 'name, client_id, lat, lng are required' }, { status: 400 })
     }
+    const startTime = b.shift_start || '08:00:00'
+    const endTime = b.shift_end || '19:00:00'
+    if (!isValidShiftWindow(startTime, endTime)) {
+      return NextResponse.json({ error: 'Shift end must be after shift start (no overnight shifts).' }, { status: 400 })
+    }
     const { data, error } = await supabase
       .from('locations')
       .insert({
@@ -37,8 +43,8 @@ export async function POST(req: NextRequest) {
         lat: b.lat,
         lng: b.lng,
         geofence_radius: b.geofence_radius ?? 150,
-        shift_start: b.shift_start || '08:00:00',
-        shift_end: b.shift_end || '19:00:00',
+        shift_start: startTime,
+        shift_end: endTime,
         shift_days: b.shift_days || 'Mon-Sat',
         active: true,
       })
@@ -66,6 +72,21 @@ export async function PATCH(req: NextRequest) {
     for (const k of allowed) if (k in rest) updates[k] = rest[k]
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
+    }
+
+    // No overnight shifts: validate the effective window (incoming else stored).
+    if ('shift_start' in updates || 'shift_end' in updates) {
+      const { data: current } = await supabase
+        .from('locations')
+        .select('shift_start, shift_end')
+        .eq('id', location_id)
+        .eq('tenant_id', ctx.opsUser.tenant_id)
+        .maybeSingle()
+      const start = 'shift_start' in updates ? updates.shift_start : current?.shift_start
+      const end = 'shift_end' in updates ? updates.shift_end : current?.shift_end
+      if (!isValidShiftWindow(start, end)) {
+        return NextResponse.json({ error: 'Shift end must be after shift start (no overnight shifts).' }, { status: 400 })
+      }
     }
 
     const { error } = await supabase

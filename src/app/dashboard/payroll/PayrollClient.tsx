@@ -71,8 +71,6 @@ export default function PayrollClient({ tenantId, opsUserId }: { tenantId: strin
       <style>{css}</style>
       <div className="py-root">
         <header className="py-topbar">
-          <Link href="/dashboard" className="py-logo">QUICKPRIME</Link>
-          <div className="py-divider" />
           <div className="py-title">Payroll summary</div>
           <div className="py-right">
             <select className="py-select" value={month} onChange={(e) => setMonth(Number(e.target.value))}>{MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}</select>

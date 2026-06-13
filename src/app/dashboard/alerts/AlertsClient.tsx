@@ -5,7 +5,6 @@
 // each call (bug #2 fix — no stale module-level Date).
 
 import { useState, useMemo } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
 const T = {
@@ -108,8 +107,6 @@ export default function AlertsClient({ initial }: { initial: AlertItem[] }) {
       <style>{css}</style>
       <div className="al-root">
         <header className="al-topbar">
-          <Link href="/dashboard" className="al-logo">QUICKPRIME</Link>
-          <div className="al-divider" />
           <div className="al-topbar-title">Alerts</div>
           <div className="al-live"><div className="al-live-dot" />Live</div>
           <div className="al-topbar-right">

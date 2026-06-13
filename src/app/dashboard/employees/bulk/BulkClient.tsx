@@ -6,6 +6,7 @@
 import { useState, useRef } from 'react'
 import Link from 'next/link'
 import Papa from 'papaparse'
+import { normalizePhone } from '@/lib/phone'
 
 const T = {
   tealDark: '#085041', teal: '#0F6E56', tealMid: '#1D9E75', tealLight: '#E1F5EE',
@@ -17,12 +18,12 @@ const T = {
 
 const COLUMNS = [
   { key: 'name', required: true, desc: 'Full name (split on first space)' },
-  { key: 'phone', required: true, desc: '5xxxxxxxx (+971 added)' },
+  { key: 'phone', required: true, desc: '05XXXXXXXX or +9715XXXXXXXX' },
   { key: 'nationality', required: false, desc: 'e.g. Philippines' },
   { key: 'shift_type', required: true, desc: '8h or 10h' },
   { key: 'monthly_salary', required: true, desc: 'Number (AED/month)' },
   { key: 'shift_days', required: false, desc: 'e.g. Mon-Fri' },
-  { key: 'joining_date', required: true, desc: 'YYYY-MM-DD' },
+  { key: 'joining_date', required: true, desc: 'YYYY-MM-DD or DD/MM/YYYY' },
   { key: 'location', required: true, desc: 'Exact DB location name' },
   { key: 'supervisor', required: false, desc: 'Supervisor name' },
   { key: 'vendor', required: false, desc: 'Talabat or Deliveroo' },
@@ -35,21 +36,44 @@ const SAMPLE_ROWS = [
 
 type Row = Record<string, string> & { _row: number; _errors: string[]; _status: 'valid' | 'error' }
 
+const clean = (v: unknown) => String(v ?? '').trim().replace(/\s+/g, ' ')
+
+// Accepts YYYY-MM-DD or DD/MM/YYYY.
+function validDate(raw: string): boolean {
+  const s = raw.trim()
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return true
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  if (!m) return false
+  const dd = Number(m[1]), mm = Number(m[2])
+  return mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31
+}
+
+// Tolerant validation that mirrors the server: trims/collapses spaces,
+// case-insensitive matching, and accepts any phone format the normalizer takes.
+// (Duplicate detection happens server-side against the DB, reported as "skipped".)
 function validateRow(row: Record<string, string>): string[] {
   const errors: string[] = []
-  if (!row.name?.trim()) errors.push('Missing name')
-  const phone = (row.phone ?? '').replace(/\D/g, '').replace(/^971/, '').replace(/^0/, '')
-  if (!row.phone?.trim()) errors.push('Missing phone')
-  else if (!/^5\d{8}$/.test(phone)) errors.push('Phone must be 5xxxxxxxx (UAE mobile)')
-  const st = row.shift_type?.trim()
+  if (!clean(row.name)) errors.push('Missing name')
+
+  const rawPhone = clean(row.phone)
+  if (!rawPhone) errors.push('Missing phone')
+  else if (!normalizePhone(rawPhone)) errors.push('Invalid UAE mobile (e.g. 05XXXXXXXX or +9715XXXXXXXX)')
+
+  const st = clean(row.shift_type).toLowerCase()
   if (!st) errors.push('Missing shift_type')
   else if (st !== '8h' && st !== '10h') errors.push('shift_type must be 8h or 10h')
-  if (!row.monthly_salary?.trim()) errors.push('Missing monthly_salary')
-  else if (isNaN(parseFloat(row.monthly_salary)) || parseFloat(row.monthly_salary) <= 0) errors.push('monthly_salary must be a positive number')
-  if (!row.joining_date?.trim()) errors.push('Missing joining_date')
-  else if (!/^\d{4}-\d{2}-\d{2}$/.test(row.joining_date.trim())) errors.push('joining_date must be YYYY-MM-DD')
-  if (!row.location?.trim()) errors.push('Missing location')
-  const vendor = row.vendor?.trim().toLowerCase()
+
+  const salary = clean(row.monthly_salary)
+  if (!salary) errors.push('Missing monthly_salary')
+  else if (isNaN(parseFloat(salary)) || parseFloat(salary) <= 0) errors.push('monthly_salary must be a positive number')
+
+  const jd = clean(row.joining_date)
+  if (!jd) errors.push('Missing joining_date')
+  else if (!validDate(jd)) errors.push('joining_date must be YYYY-MM-DD or DD/MM/YYYY')
+
+  if (!clean(row.location)) errors.push('Missing location')
+
+  const vendor = clean(row.vendor).toLowerCase()
   if (vendor && vendor !== 'talabat' && vendor !== 'deliveroo') errors.push('vendor must be Talabat or Deliveroo')
   return errors
 }
@@ -60,7 +84,7 @@ function downloadTemplate() {
   const url = URL.createObjectURL(new Blob([`${header}\n${rows}`], { type: 'text/csv' }))
   const a = document.createElement('a')
   a.href = url
-  a.download = 'quickprime_employee_template.csv'
+  a.download = 'opspro_employee_template.csv'
   a.click()
   URL.revokeObjectURL(url)
 }
@@ -73,7 +97,7 @@ export default function BulkClient() {
   const [rows, setRows] = useState<Row[]>([])
   const [filter, setFilter] = useState<'all' | 'valid' | 'errors'>('all')
   const [drag, setDrag] = useState(false)
-  const [serverResult, setServerResult] = useState<{ created: number; failed: number; results: any[] } | null>(null)
+  const [serverResult, setServerResult] = useState<{ added: number; skipped: number; errors: number; results: any[] } | null>(null)
   const fileRef = useRef<HTMLInputElement | null>(null)
 
   function handleFile(file?: File | null) {
@@ -123,7 +147,7 @@ export default function BulkClient() {
   const validCount = rows.filter((r) => r._status === 'valid').length
   const errorCount = rows.filter((r) => r._status === 'error').length
   const displayRows = rows.filter((r) => (filter === 'valid' ? r._status === 'valid' : filter === 'errors' ? r._status === 'error' : true))
-  const serverErrors = (serverResult?.results ?? []).filter((r) => !r.ok)
+  const serverErrors = (serverResult?.results ?? []).filter((r) => r.status === 'error')
 
   return (
     <>
@@ -131,7 +155,7 @@ export default function BulkClient() {
       <div className="bu-root">
         <div className="bu-layout">
           <aside className="bu-sidebar">
-            <Link href="/dashboard" className="bu-logo">QUICKPRIME</Link>
+            <Link href="/dashboard" className="bu-logo">OPSPRO</Link>
             <div className="bu-sidebar-title">Bulk<br />onboarding</div>
             <div className="bu-sidebar-sub">Upload your entire workforce in a single CSV.</div>
             <div className="bu-mode-btns">
@@ -158,7 +182,7 @@ export default function BulkClient() {
                 <div className="bu-template-box">
                   <div>
                     <div className="bu-template-label">Step 1 — Get the template</div>
-                    <div className="bu-template-title">quickprime_employee_template.csv</div>
+                    <div className="bu-template-title">opspro_employee_template.csv</div>
                     <div className="bu-template-desc">All required columns with sample rows. Delete the samples before uploading.</div>
                   </div>
                   <button className="bu-dl-btn" onClick={downloadTemplate}>⬇ Download template</button>
@@ -233,17 +257,18 @@ export default function BulkClient() {
             {view === VIEW.DONE && serverResult && (
               <div className="bu-success">
                 <div className="bu-success-ring">✓</div>
-                <div className="bu-success-h"><em>{serverResult.created} employees</em> imported</div>
-                <div className="bu-success-sub">Each new employee receives a WhatsApp link to set their 6-digit PIN.</div>
+                <div className="bu-success-h"><em>{serverResult.added} added</em>{serverResult.skipped > 0 ? `, ${serverResult.skipped} skipped` : ''}</div>
+                <div className="bu-success-sub">Each newly added employee receives a WhatsApp link to set their 6-digit PIN. Rows whose phone already exists are skipped, so you can re-upload a growing master sheet safely.</div>
                 <div className="bu-success-cards">
-                  <div className="bu-success-card"><div className="bu-success-card-val">{serverResult.created}</div><div className="bu-success-card-label">Profiles created</div></div>
+                  <div className="bu-success-card"><div className="bu-success-card-val">{serverResult.added}</div><div className="bu-success-card-label">Added</div></div>
                   <div className="bu-success-card"><div className="bu-success-card-val">{serverResult.results.filter((r) => r.whatsapp_sent).length}</div><div className="bu-success-card-label">Invites sent</div></div>
-                  {serverResult.failed > 0 && <div className="bu-success-card" style={{ borderColor: T.redBorder, background: T.redBg }}><div className="bu-success-card-val" style={{ color: T.red }}>{serverResult.failed}</div><div className="bu-success-card-label" style={{ color: T.red }}>Rows failed</div></div>}
+                  <div className="bu-success-card"><div className="bu-success-card-val">{serverResult.skipped}</div><div className="bu-success-card-label">Skipped (exists)</div></div>
+                  {serverResult.errors > 0 && <div className="bu-success-card" style={{ borderColor: T.redBorder, background: T.redBg }}><div className="bu-success-card-val" style={{ color: T.red }}>{serverResult.errors}</div><div className="bu-success-card-label" style={{ color: T.red }}>Errors</div></div>}
                 </div>
                 {serverErrors.length > 0 && (
                   <div className="bu-info red" style={{ maxWidth: 520, textAlign: 'left' }}>
                     <span className="bu-info-icon">❌</span>
-                    <div><strong>Failed rows:</strong>{serverErrors.slice(0, 10).map((r, i) => <div key={i}>Row {r.row} ({r.phone}): {r.error}</div>)}</div>
+                    <div><strong>Rows with errors:</strong>{serverErrors.slice(0, 10).map((r, i) => <div key={i}>Row {r.row}{r.phone ? ` (${r.phone})` : ''}: {r.reason}</div>)}</div>
                   </div>
                 )}
                 <div style={{ display: 'flex', gap: 12 }}>

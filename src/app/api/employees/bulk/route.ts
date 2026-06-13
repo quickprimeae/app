@@ -11,6 +11,7 @@ import { getOpsContext } from '@/lib/ops'
 import { generateSetupToken, buildSetupUrl } from '@/lib/pin'
 import { sendPinSetupInvite } from '@/lib/whatsapp'
 import { hourlyRateFromSalary } from '@/lib/salary'
+import { normalizePhone } from '@/lib/phone'
 
 type InRow = {
   name?: string
@@ -26,17 +27,37 @@ type InRow = {
   branch?: string
 }
 
+// Trim and collapse repeated internal whitespace in a cell.
+function clean(v: unknown): string {
+  return String(v ?? '').trim().replace(/\s+/g, ' ')
+}
+
 function splitName(name: string): { first: string; last: string } {
-  const parts = name.trim().split(/\s+/)
+  const parts = name.split(' ')
   return { first: parts[0] ?? '', last: parts.slice(1).join(' ') }
 }
 
-// UAE mobile "5xxxxxxxx" (also tolerates 0-prefix or existing +971) -> +9715xxxxxxxx
-function normPhone(phone: string): string {
-  let d = phone.replace(/\D/g, '')
-  if (d.startsWith('971')) d = d.slice(3)
-  if (d.startsWith('0')) d = d.slice(1)
-  return `+971${d}`
+// Accepts YYYY-MM-DD or DD/MM/YYYY; returns canonical YYYY-MM-DD, else null.
+function parseDate(raw: string): string | null {
+  const s = raw.trim()
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  if (m) {
+    const [, d, mo, y] = m
+    const dd = Number(d), mm = Number(mo)
+    if (mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31) {
+      return `${y}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}`
+    }
+  }
+  return null
+}
+
+type ResultRow = {
+  row: number
+  phone?: string
+  status: 'added' | 'skipped' | 'error'
+  reason?: string
+  whatsapp_sent?: boolean
 }
 
 export async function POST(req: NextRequest) {
@@ -60,46 +81,64 @@ export async function POST(req: NextRequest) {
       supabase.from('ops_users').select('id, name').eq('tenant_id', tenantId),
       supabase.from('employees').select('phone').eq('tenant_id', tenantId),
     ])
+    // Case-insensitive lookups; collapse internal whitespace on the keys too.
     const locByName = new Map(
-      ((locs ?? []) as any[]).map((l) => [l.name.trim().toLowerCase(), { id: l.id, client: (l.client?.name ?? '').toLowerCase() }])
+      ((locs ?? []) as any[]).map((l) => [clean(l.name).toLowerCase(), { id: l.id, client: clean(l.client?.name).toLowerCase() }])
     )
-    const supByName = new Map((sups ?? []).map((s) => [(s.name ?? '').trim().toLowerCase(), s.id]))
+    const supByName = new Map((sups ?? []).map((s) => [clean(s.name).toLowerCase(), s.id]))
+    // Existing phones are normalized in the DB (migration 0004) — match on E.164.
     const takenPhones = new Set((existing ?? []).map((e) => e.phone))
 
-    const results: { row: number; phone?: string; ok: boolean; error?: string; whatsapp_sent?: boolean }[] = []
-    let created = 0
+    const results: ResultRow[] = []
+    let added = 0
+    let skipped = 0
+    const seenInFile = new Set<string>() // de-dupe rows within this same upload
 
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i]
-      const fail = (error: string, phone?: string) => results.push({ row: i + 1, phone, ok: false, error })
+      const rowNum = i + 2 // account for the header row when reporting
+      const err = (reason: string, phone?: string) => results.push({ row: rowNum, phone, status: 'error', reason })
+      const skip = (reason: string, phone?: string) => { results.push({ row: rowNum, phone, status: 'skipped', reason }); skipped++ }
 
-      if (!r.name?.trim()) { fail('Missing name'); continue }
-      const { first, last } = splitName(r.name)
-      if (!first) { fail('Invalid name'); continue }
+      const name = clean(r.name)
+      if (!name) { err('Missing name'); continue }
+      const { first, last } = splitName(name)
+      if (!first) { err('Invalid name'); continue }
 
-      if (!r.phone?.trim()) { fail('Missing phone'); continue }
-      const phone = normPhone(r.phone)
-      if (!/^\+9715\d{8}$/.test(phone)) { fail(`Invalid UAE phone: ${r.phone}`, phone); continue }
-      if (takenPhones.has(phone)) { fail('Phone already registered', phone); continue }
+      const rawPhone = clean(r.phone)
+      if (!rawPhone) { err('Missing phone'); continue }
+      const phone = normalizePhone(rawPhone)
+      if (!phone) { err(`Invalid UAE phone: ${rawPhone}`); continue }
 
-      const shiftType = r.shift_type?.trim()
-      if (shiftType !== '8h' && shiftType !== '10h') { fail('shift_type must be 8h or 10h', phone); continue }
+      // Dedupe / upsert: already in the DB or earlier in this file → skip, not error.
+      if (takenPhones.has(phone) || seenInFile.has(phone)) { skip('already exists', phone); continue }
 
-      const hourly_rate = hourlyRateFromSalary(r.monthly_salary as any, shiftType)
-      if (hourly_rate == null) { fail('monthly_salary must be a positive number', phone); continue }
+      const shiftType = clean(r.shift_type).toLowerCase()
+      if (shiftType !== '8h' && shiftType !== '10h') { err('shift_type must be 8h or 10h', phone); continue }
 
-      if (!r.location?.trim()) { fail('Missing location', phone); continue }
-      const loc = locByName.get(r.location.trim().toLowerCase())
-      if (!loc) { fail(`Unknown location: ${r.location}`, phone); continue }
+      const monthlyRaw = clean(r.monthly_salary)
+      const hourly_rate = hourlyRateFromSalary(monthlyRaw as any, shiftType)
+      if (hourly_rate == null) { err('monthly_salary must be a positive number', phone); continue }
 
-      // vendor maps to the client; if given it must match the location's client.
-      const vendor = r.vendor?.trim().toLowerCase()
+      const locName = clean(r.location)
+      if (!locName) { err('Missing location', phone); continue }
+      const loc = locByName.get(locName.toLowerCase())
+      if (!loc) { err(`Unknown location: ${locName}`, phone); continue }
+
+      // vendor maps to the client; if given it must match the location's client (case-insensitive).
+      const vendor = clean(r.vendor).toLowerCase()
       if (vendor && loc.client && vendor !== loc.client) {
-        fail(`Vendor "${r.vendor}" doesn't match location's client "${loc.client}"`, phone)
+        err(`Vendor "${clean(r.vendor)}" doesn't match location's client "${loc.client}"`, phone)
         continue
       }
 
-      const supervisor_id = r.supervisor ? supByName.get(r.supervisor.trim().toLowerCase()) ?? null : null
+      const joiningRaw = clean(r.joining_date)
+      if (!joiningRaw) { err('Missing joining_date', phone); continue }
+      const startDate = parseDate(joiningRaw)
+      if (!startDate) { err(`Invalid joining_date: ${joiningRaw} (use YYYY-MM-DD or DD/MM/YYYY)`, phone); continue }
+
+      const supKey = clean(r.supervisor).toLowerCase()
+      const supervisor_id = supKey ? supByName.get(supKey) ?? null : null
 
       const { token, hash: tokenHash, expires } = generateSetupToken()
       const { data: emp, error } = await supabase
@@ -109,17 +148,17 @@ export async function POST(req: NextRequest) {
           first_name: first,
           last_name: last,
           phone,
-          nationality: r.nationality?.trim() || null,
+          nationality: clean(r.nationality) || null,
           role: 'picker',
           location_id: loc.id,
           supervisor_id,
           hourly_rate,
-          monthly_salary: Number(r.monthly_salary),
+          monthly_salary: Number(monthlyRaw),
           shift_type: shiftType,
-          shift_days: r.shift_days?.trim() || null,
-          branch: r.branch?.trim() || null,
+          shift_days: clean(r.shift_days) || null,
+          branch: clean(r.branch) || null,
           // shift_start/shift_end intentionally unset — inherit location defaults.
-          start_date: r.joining_date?.trim() || new Date().toISOString().split('T')[0],
+          start_date: startDate,
           pin_setup_token_hash: tokenHash,
           pin_setup_expires: expires.toISOString(),
           employee_number: '',
@@ -128,18 +167,20 @@ export async function POST(req: NextRequest) {
         .select('id')
         .single()
 
-      if (error || !emp) { fail(error?.message || 'Insert failed', phone); continue }
+      if (error || !emp) { err(error?.message || 'Insert failed', phone); continue }
       takenPhones.add(phone)
-      created++
+      seenInFile.add(phone)
+      added++
 
       const { success: waSent } = await sendPinSetupInvite({ firstName: first, phone, setupUrl: buildSetupUrl(token) })
-      results.push({ row: i + 1, phone, ok: true, whatsapp_sent: waSent })
+      results.push({ row: rowNum, phone, status: 'added', whatsapp_sent: waSent })
     }
 
     return NextResponse.json({
       success: true,
-      created,
-      failed: results.filter((r) => !r.ok).length,
+      added,
+      skipped,
+      errors: results.filter((r) => r.status === 'error').length,
       results,
     })
   } catch (err) {

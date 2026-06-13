@@ -103,8 +103,6 @@ export default function HoursClient() {
       <style>{css}</style>
       <div className="hv-root">
         <header className="hv-topbar">
-          <Link href="/dashboard" className="hv-logo">QUICKPRIME</Link>
-          <div className="hv-divider" />
           <div className="hv-title">Hours &amp; verification</div>
           <div className="hv-right">
             <select className="hv-select" value={month} onChange={(e) => setMonth(Number(e.target.value))}>

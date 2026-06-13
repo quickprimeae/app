@@ -4,7 +4,6 @@
 // (modal) and geofence adjustment wired to /api/locations.
 
 import { useState, useMemo } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { LocationRow } from '@/lib/locations-data'
 
@@ -132,8 +131,6 @@ export default function LocationsClient({ initial, clients }: { initial: Locatio
       <style>{css}</style>
       <div className="lp-root">
         <header className="lp-topbar">
-          <Link href="/dashboard" className="lp-logo">QUICKPRIME</Link>
-          <div className="lp-divider" />
           <div className="lp-topbar-title">Locations</div>
           <div className="lp-topbar-right">
             <div className="lp-search">

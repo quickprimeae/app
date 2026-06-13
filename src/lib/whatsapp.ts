@@ -26,7 +26,7 @@ export async function sendPinSetupInvite({
       from: FROM,
       to: `whatsapp:${phone}`,
       body:
-        `Hi ${firstName}, welcome to QuickPrime. ` +
+        `Hi ${firstName}, welcome to OpsPro. ` +
         `Set up your clock-in PIN here: ${setupUrl}\n\n` +
         `This link expires in 24 hours. Do not share it with anyone.`,
     })
@@ -54,7 +54,7 @@ export async function sendNoShowAlert({
       from: FROM,
       to: `whatsapp:${supervisorPhone}`,
       body:
-        `QuickPrime alert: ${employeeName} has not clocked in at ` +
+        `OpsPro alert: ${employeeName} has not clocked in at ` +
         `${locationName}. Shift started ${minutesLate} minutes ago.`,
     })
     return { success: true }

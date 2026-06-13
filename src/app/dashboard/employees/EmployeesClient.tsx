@@ -103,7 +103,7 @@ export default function EmployeesClient({ initial }: { initial: EmployeeRow[] })
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
     const a = document.createElement('a')
     a.href = url
-    a.download = 'quickprime_employees.csv'
+    a.download = 'opspro_employees.csv'
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -157,8 +157,6 @@ export default function EmployeesClient({ initial }: { initial: EmployeeRow[] })
       <style>{css}</style>
       <div className="ep-root">
         <header className="ep-topbar">
-          <Link href="/dashboard" className="ep-logo">QUICKPRIME</Link>
-          <div className="ep-divider" />
           <div className="ep-topbar-title">Employees</div>
           <div className="ep-topbar-right">
             <div className="ep-search">

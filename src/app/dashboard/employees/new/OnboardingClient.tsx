@@ -6,6 +6,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
+import { normalizePhone } from '@/lib/phone'
 
 const T = {
   tealDark: '#085041', teal: '#0F6E56', tealMid: '#1D9E75', tealLight: '#E1F5EE',
@@ -59,8 +60,11 @@ export default function OnboardingClient({ tenantId, locations, supervisors }: {
     setData((d) => ({ ...d, photoUrl: url, photoFile: file }))
   }
 
+  // Same phone rule as bulk upload — must normalize to a valid UAE mobile.
+  const phoneValid = !!normalizePhone(data.phone)
+
   function canAdvance() {
-    if (step === 0) return data.firstName && data.lastName && data.phone && data.startDate
+    if (step === 0) return data.firstName && data.lastName && phoneValid && data.startDate
     if (step === 1) return data.locationId && data.monthlySalary && data.shiftType
     return true
   }
@@ -129,7 +133,7 @@ export default function OnboardingClient({ tenantId, locations, supervisors }: {
       <div className="ob-root">
         <div className="ob-layout">
           <aside className="ob-sidebar">
-            <Link href="/dashboard" className="ob-logo">QUICKPRIME</Link>
+            <Link href="/dashboard" className="ob-logo">OPSPRO</Link>
             <div className="ob-sidebar-title">New employee<br />onboarding</div>
             <div className="ob-sidebar-sub">Register a picker and send them their PIN setup link.</div>
             <div className="ob-steps">
@@ -164,7 +168,7 @@ export default function OnboardingClient({ tenantId, locations, supervisors }: {
                       <Field label="Last name" required><input className="ob-input" placeholder="Al Rashidi" value={data.lastName} onChange={(e) => onChange('lastName', e.target.value)} /></Field>
                     </div>
                     <div className="ob-row">
-                      <Field label="Mobile number" required hint="Used to send the PIN setup link"><input className="ob-input" placeholder="+971 50 123 4567" value={data.phone} onChange={(e) => onChange('phone', e.target.value)} /></Field>
+                      <Field label="Mobile number" required hint={data.phone && !phoneValid ? 'Enter a valid UAE mobile (e.g. 05XXXXXXXX or +9715XXXXXXXX)' : 'Used to send the PIN setup link'}><input className="ob-input" placeholder="+971 50 123 4567" value={data.phone} onChange={(e) => onChange('phone', e.target.value)} /></Field>
                       <Field label="Nationality"><select className="ob-select" value={data.nationality} onChange={(e) => onChange('nationality', e.target.value)}><option value="">Select country</option>{['UAE', 'Philippines', 'India', 'Pakistan', 'Bangladesh', 'Egypt', 'Jordan', 'Sri Lanka', 'Nepal', 'Other'].map((n) => <option key={n} value={n}>{n}</option>)}</select></Field>
                     </div>
                     <div className="ob-row">

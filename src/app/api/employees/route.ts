@@ -6,6 +6,8 @@ import { createServerSupabaseClient } from '@/lib/supabase'
 import { generateSetupToken, buildSetupUrl } from '@/lib/pin'
 import { sendPinSetupInvite } from '@/lib/whatsapp'
 import { hourlyRateFromSalary } from '@/lib/salary'
+import { normalizePhone } from '@/lib/phone'
+import { isValidShiftWindow } from '@/lib/shift'
 
 // ── GET /api/employees ─────────────────────────────────────
 export async function GET(req: NextRequest) {
@@ -68,6 +70,15 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // Normalize + validate the phone (same rules as bulk upload).
+    const normalizedPhone = normalizePhone(phone)
+    if (!normalizedPhone) {
+      return NextResponse.json(
+        { error: `Invalid UAE mobile number: "${phone}". Use a number like 05XXXXXXXX or +9715XXXXXXXX.` },
+        { status: 400 }
+      )
+    }
+
     // Derive hourly_rate from the monthly salary + shift length.
     const hourly_rate = hourlyRateFromSalary(monthly_salary, shift_type)
     if (hourly_rate == null) {
@@ -82,12 +93,12 @@ export async function POST(req: NextRequest) {
       .from('employees')
       .select('id')
       .eq('tenant_id', tenant_id)
-      .eq('phone', phone)
+      .eq('phone', normalizedPhone)
       .single()
 
     if (existing) {
       return NextResponse.json(
-        { error: `Phone number ${phone} is already registered to another employee.` },
+        { error: `Phone number ${normalizedPhone} is already registered to another employee.` },
         { status: 409 }
       )
     }
@@ -102,7 +113,7 @@ export async function POST(req: NextRequest) {
         tenant_id,
         first_name,
         last_name,
-        phone,
+        phone: normalizedPhone,
         nationality,
         location_id: location_id || null,
         supervisor_id: supervisor_id || null,
@@ -134,7 +145,7 @@ export async function POST(req: NextRequest) {
     const setupUrl = buildSetupUrl(token)
     const { success: waSent, error: waError } = await sendPinSetupInvite({
       firstName: first_name,
-      phone,
+      phone: normalizedPhone,
       setupUrl,
     })
 
@@ -173,6 +184,36 @@ export async function PATCH(req: NextRequest) {
     ]
     const updates: Record<string, any> = {}
     for (const k of allowed) if (k in rest) updates[k] = rest[k]
+
+    // Normalize + validate phone on change (same rules as create / bulk).
+    if ('phone' in updates) {
+      const normalized = normalizePhone(updates.phone)
+      if (!normalized) {
+        return NextResponse.json(
+          { error: `Invalid UAE mobile number: "${updates.phone}". Use a number like 05XXXXXXXX or +9715XXXXXXXX.` },
+          { status: 400 }
+        )
+      }
+      updates.phone = normalized
+    }
+
+    // No overnight shifts: a per-employee shift must end after it starts.
+    // Validate using the effective pair (incoming value, else the stored one).
+    if ('shift_start' in updates || 'shift_end' in updates) {
+      const { data: current } = await supabase
+        .from('employees')
+        .select('shift_start, shift_end')
+        .eq('id', employee_id)
+        .maybeSingle()
+      const start = 'shift_start' in updates ? updates.shift_start : current?.shift_start
+      const end = 'shift_end' in updates ? updates.shift_end : current?.shift_end
+      if (!isValidShiftWindow(start, end)) {
+        return NextResponse.json(
+          { error: 'Shift end must be after shift start (no overnight shifts).' },
+          { status: 400 }
+        )
+      }
+    }
 
     // Stamp deactivation.
     if ('active' in updates && updates.active === false) {

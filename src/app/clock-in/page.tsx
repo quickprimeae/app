@@ -376,7 +376,7 @@ export default function PickerClockIn() {
           <div className="qp-phone">
             <div className="qp-header" style={{ paddingBottom: 32 }}>
               <div>
-                <div className="qp-logo">QUICKPRIME</div>
+                <div className="qp-logo">OPSPRO</div>
                 <div className="qp-greeting">
                   <div className="qp-greeting-sub">Welcome</div>
                   <div className="qp-greeting-name">Clock in</div>
@@ -389,7 +389,7 @@ export default function PickerClockIn() {
                   Enter your phone number
                 </div>
                 <div className="qp-step-sub" style={{ textAlign: 'left', marginBottom: 20 }}>
-                  Use the number registered with QuickPrime.
+                  Use the number registered with OpsPro.
                 </div>
                 <input
                   className="qp-text-input"
@@ -428,7 +428,7 @@ export default function PickerClockIn() {
           {/* Header */}
           <div className="qp-header">
             <div>
-              <div className="qp-logo">QUICKPRIME</div>
+              <div className="qp-logo">OPSPRO</div>
               <div className="qp-greeting">
                 <div className="qp-greeting-sub">Hello,</div>
                 <div className="qp-greeting-name">
