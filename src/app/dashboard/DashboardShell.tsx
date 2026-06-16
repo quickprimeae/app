@@ -30,6 +30,12 @@ const NAV: { label: string; items: NavItem[] }[] = [
     ],
   },
   {
+    label: 'Schedule',
+    items: [
+      { icon: '📥', label: 'Import schedule', href: '/dashboard/roster/import' },
+    ],
+  },
+  {
     label: 'Payroll',
     items: [
       { icon: '🕐', label: 'Hours & verification', href: '/dashboard/payroll/hours' },
@@ -177,6 +183,6 @@ const css = `
     font-size: 17px; cursor: pointer;
   }
   /* Shift sub-page sticky headers clear of the floating hamburger. */
-  .db-topbar, .ep-topbar, .lp-topbar, .al-topbar, .iv-topbar, .py-topbar, .hv-topbar { padding-left: 58px !important; }
+  .db-topbar, .ep-topbar, .lp-topbar, .al-topbar, .iv-topbar, .py-topbar, .hv-topbar, .si-topbar { padding-left: 58px !important; }
 }
 `
