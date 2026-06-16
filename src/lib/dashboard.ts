@@ -4,8 +4,9 @@
 // Used by the /dashboard server component and the /api/attendance refresh route.
 
 import { createServerSupabaseClient } from './supabase'
+import { deriveStatus, type DerivedStatus } from './status'
 
-export type PickerStatus = 'in' | 'absent' | 'expected'
+export type PickerStatus = DerivedStatus
 export type LocationStatus = 'active' | 'late' | 'noshow' | 'noshift'
 
 export type DashPicker = {
@@ -63,6 +64,14 @@ function hhmm(iso: string) {
   return new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
 }
 
+// "Muhammad Hassan" -> "Muhammad H." so duplicate first names are distinguishable
+// on the dashboard chips.
+function shortName(first: string, last: string | null): string {
+  const f = (first ?? '').trim()
+  const li = (last ?? '').trim()[0]
+  return li ? `${f} ${li.toUpperCase()}.` : f
+}
+
 export async function getDashboardData(tenantId: string): Promise<DashboardData> {
   const supabase = createServerSupabaseClient()
   const today = new Date().toISOString().split('T')[0]
@@ -76,7 +85,7 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
       .order('name', { ascending: true }),
     supabase
       .from('employees')
-      .select('id, first_name, last_name, employee_number, location_id, shift_start, shift_end, supervisor:ops_users(name)')
+      .select('id, first_name, last_name, employee_number, location_id, shift_start, shift_end, pin_set, supervisor:ops_users(name)')
       .eq('tenant_id', tenantId)
       .eq('active', true)
       .eq('role', 'picker'),
@@ -137,19 +146,26 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
       // Effective shift = the employee's own time if set, else the location's.
       const startMin = toMin(e.shift_start ?? loc.shift_start ?? null)
       const shiftStarted = startMin == null ? true : nowMin >= startMin
-      let pstatus: 'in' | 'absent' | 'expected'
+      let late = false
       if (ev) {
         clockedIn++
-        pstatus = 'in'
-      } else if (shiftStarted) {
-        missing++
-        pstatus = 'absent' // due now and not here = no-show
-      } else {
-        pstatus = 'expected' // shift hasn't started yet
+        const d = new Date(ev.timestamp)
+        const clockMin = (d.getUTCHours() * 60 + d.getUTCMinutes() + 240) % 1440
+        late = startMin != null && clockMin > startMin + 5
       }
+      const pstatus = deriveStatus({
+        active: true, // query already filters active = true
+        pinSet: !!e.pin_set,
+        clockedIn: !!ev,
+        late,
+        shiftStarted,
+      })
+      // Only a genuinely-due, PIN-ready picker who hasn't clocked in is a no-show.
+      // awaiting_setup can't clock in, so it is never counted as missing.
+      if (pstatus === 'absent') missing++
       return {
         id: e.employee_number || e.id.slice(0, 8),
-        name: `${e.first_name} ${e.last_name}`.trim(),
+        name: shortName(e.first_name, e.last_name),
         status: pstatus,
         clockedInAt: ev?.timestamp ?? null,
         flagged: !!ev?.flagged,

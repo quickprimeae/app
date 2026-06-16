@@ -3,8 +3,9 @@
 // this month's hours/earnings (joined from clock_events + monthly_hours view).
 
 import { createServerSupabaseClient } from './supabase'
+import { deriveStatus, type DerivedStatus } from './status'
 
-export type EmployeeStatus = 'active' | 'late' | 'absent'
+export type EmployeeStatus = DerivedStatus
 export type EmployeeRow = {
   id: string // uuid
   empId: string // employee_number
@@ -24,7 +25,7 @@ export type EmployeeRow = {
   shiftDays: string | null
   shiftHours: string
   personalShift: boolean
-  status: EmployeeStatus
+  status: DerivedStatus
   clockedInAt: string | null
   hoursThisMonth: number
   earnedThisMonth: number
@@ -75,6 +76,12 @@ export async function getEmployeesList(tenantId: string): Promise<EmployeeRow[]>
   const events = (evtRes.data ?? []) as any[]
   const hoursByEmp = new Map(((hoursRes.data ?? []) as any[]).map((h) => [h.employee_id, h]))
 
+  // Current time-of-day in Gulf Standard Time (UTC+4) to decide whether a
+  // shift has started — same convention as the live dashboard. No overnight
+  // shifts, so a same-day minutes-since-midnight comparison is sufficient.
+  const nowD = new Date()
+  const nowMin = (nowD.getUTCHours() * 60 + nowD.getUTCMinutes() + 240) % 1440
+
   const clockByEmp = new Map<string, { timestamp: string; flagged: boolean }>()
   for (const e of events) {
     const existing = clockByEmp.get(e.employee_id)
@@ -92,15 +99,24 @@ export async function getEmployeesList(tenantId: string): Promise<EmployeeRow[]>
     const effStart: string | null = e.shift_start ?? loc?.shift_start ?? null
     const effEnd: string | null = e.shift_end ?? loc?.shift_end ?? null
 
-    let status: EmployeeStatus = 'absent'
+    // Derived status: deactivated > awaiting_setup > clocked_in/late > ready/absent.
+    // A shift with no start time is treated as already due (shiftStarted = true).
+    const shiftStartMin = timeToMinutes(effStart)
+    let late = false
     if (ev) {
-      const shiftStartMin = timeToMinutes(effStart)
       // Compare clock-in against the shift start in GST (UTC+4); shifts never
       // cross midnight.
       const d = new Date(ev.timestamp)
       const clockMin = (d.getUTCHours() * 60 + d.getUTCMinutes() + 240) % 1440
-      status = shiftStartMin != null && clockMin > shiftStartMin + 5 ? 'late' : 'active'
+      late = shiftStartMin != null && clockMin > shiftStartMin + 5
     }
+    const status = deriveStatus({
+      active: !!e.active,
+      pinSet: !!e.pin_set,
+      clockedIn: !!ev,
+      late,
+      shiftStarted: shiftStartMin == null ? true : nowMin >= shiftStartMin,
+    })
 
     const rate = Number(e.hourly_rate) || 0
     const hoursThisMonth = Number(hours?.total_hours) || 0

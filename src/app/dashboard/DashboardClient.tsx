@@ -10,6 +10,18 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createBrowserSupabaseClient } from '@/lib/supabase'
 import type { DashboardData, DashLocation } from '@/lib/dashboard'
+import { STATUS_META, type DerivedStatus } from '@/lib/status'
+
+// Map a derived status to the picker-chip CSS variant (tone). awaiting_setup and
+// ready are both grey; flagged overrides everything.
+const CHIP_CLASS: Record<DerivedStatus, string> = {
+  clocked_in: 'in',
+  late: 'late',
+  absent: 'absent',
+  ready: 'expected',
+  awaiting_setup: 'awaiting',
+  deactivated: 'expected',
+}
 
 const T = {
   bg: '#0a0f0d', bgCard: '#111815', bgHover: '#161e1a', bgSubtle: '#0f1712',
@@ -303,11 +315,11 @@ export default function DashboardClient({
 
                 <div className="db-loc-pickers">
                   {loc.pickers.map((p, j) => {
-                    const cls = p.flagged ? 'flagged' : p.status
+                    const cls = p.flagged ? 'flagged' : CHIP_CLASS[p.status]
                     return (
-                      <div key={j} className={`db-picker-chip ${cls}`}>
+                      <div key={j} className={`db-picker-chip ${cls}`} title={STATUS_META[p.status].label}>
                         <div className={`db-chip-dot ${cls}`} />
-                        {p.name.split(' ')[0]}
+                        {p.name}
                         {p.flagged && ' ⚠'}
                       </div>
                     )
@@ -374,7 +386,8 @@ export default function DashboardClient({
                   <div className="db-detail-section-title">Pickers</div>
                   {selectedLoc.pickers.length === 0 && <div style={{ color: T.dimMid, fontSize: 13 }}>No pickers assigned to this location.</div>}
                   {selectedLoc.pickers.map((p, i) => {
-                    const badge = p.flagged ? 'flagged' : p.status
+                    const badge = p.flagged ? 'flagged' : CHIP_CLASS[p.status]
+                    const showTime = !p.flagged && (p.status === 'clocked_in' || p.status === 'late')
                     return (
                       <div key={i} className="db-picker-row">
                         <div className="db-picker-avatar">{initials(p.name)}</div>
@@ -382,14 +395,14 @@ export default function DashboardClient({
                           <div className="db-picker-name">{p.name}</div>
                           <div className="db-picker-id">{p.id}</div>
                         </div>
-                        {p.status === 'in' && !p.flagged && (
+                        {showTime && (
                           <div className="db-picker-time">
                             <div className="db-picker-time-val">{fmt(p.clockedInAt)}</div>
                             <div className="db-picker-time-label">{elapsed(p.clockedInAt)}</div>
                           </div>
                         )}
                         <div className={`db-picker-status-badge ${badge}`}>
-                          {p.flagged ? '⚠ flagged' : p.status === 'in' ? '✓ in' : p.status === 'absent' ? '✗ absent' : 'expected'}
+                          {p.flagged ? '⚠ flagged' : STATUS_META[p.status].short}
                         </div>
                       </div>
                     )
@@ -470,13 +483,17 @@ const css = `
 .db-loc-pickers { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
 .db-picker-chip { display: flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 500; border: 1px solid transparent; }
 .db-picker-chip.in { background: #0a1f14; color: ${T.tealText}; border-color: #1a3a28; }
+.db-picker-chip.late { background: ${T.amberBg}; color: ${T.amber}; border-color: #5a3d0a; }
 .db-picker-chip.absent { background: ${T.redBg}; color: ${T.red}; border-color: #3d1a1a; }
 .db-picker-chip.expected { background: ${T.bgSubtle}; color: ${T.dimMid}; border-color: ${T.border}; }
+.db-picker-chip.awaiting { background: ${T.bgSubtle}; color: ${T.dim}; border-color: ${T.borderMid}; border-style: dashed; }
 .db-picker-chip.flagged { background: #1f1608; color: ${T.amber}; border-color: #5a3d0a; }
 .db-chip-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
 .db-chip-dot.in { background: ${T.tealBright}; }
+.db-chip-dot.late { background: ${T.amber}; }
 .db-chip-dot.absent { background: ${T.red}; }
 .db-chip-dot.expected { background: ${T.dimMid}; }
+.db-chip-dot.awaiting { background: ${T.dim}; }
 .db-chip-dot.flagged { background: ${T.amber}; }
 .db-loc-footer { display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid ${T.border}; font-size: 11px; color: ${T.dim}; }
 .db-loc-footer-stat { display: flex; align-items: center; gap: 5px; }
@@ -521,8 +538,10 @@ const css = `
 .db-picker-time-label { font-size: 10px; color: ${T.dim}; }
 .db-picker-status-badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px; letter-spacing: 0.04em; text-transform: uppercase; }
 .db-picker-status-badge.in { background: ${T.greenBg}; color: ${T.green}; }
+.db-picker-status-badge.late { background: ${T.amberBg}; color: ${T.amber}; }
 .db-picker-status-badge.absent { background: ${T.redBg}; color: ${T.red}; }
 .db-picker-status-badge.expected { background: ${T.bgSubtle}; color: ${T.dimMid}; }
+.db-picker-status-badge.awaiting { background: ${T.bgSubtle}; color: ${T.dim}; }
 .db-picker-status-badge.flagged { background: ${T.amberBg}; color: ${T.amber}; }
 .db-detail-stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
 .db-detail-stat { background: ${T.bgSubtle}; border: 1px solid ${T.border}; border-radius: 8px; padding: 12px 14px; }

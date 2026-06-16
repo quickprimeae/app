@@ -25,7 +25,9 @@ export type InviteRow = {
 }
 
 function expiryLabel(iso: string | null) {
-  if (!iso) return { text: 'No active link', stale: true }
+  // No expiry stored means a setup link was never minted for this employee —
+  // distinct from a link that was sent and has since lapsed.
+  if (!iso) return { text: 'Not sent yet', stale: true }
   const ms = new Date(iso).getTime() - Date.now()
   if (ms <= 0) return { text: 'Link expired', stale: true }
   const h = Math.floor(ms / 3600000)
@@ -42,6 +44,62 @@ export default function InvitesClient({ initial }: { initial: InviteRow[] }) {
   const [busyId, setBusyId] = useState<string | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const [bulkText, setBulkText] = useState<string | null>(null)
+  const [bulkCopied, setBulkCopied] = useState(false)
+
+  // Generate a fresh link for everyone at once and assemble a copy-all list ops
+  // can paste into a spreadsheet or broadcast. Each call rotates that
+  // employee's token, so any earlier link is invalidated.
+  async function generateAll() {
+    setBulkBusy(true)
+    setError(null)
+    try {
+      const results = await Promise.all(
+        rows.map(async (row) => {
+          try {
+            const res = await fetch('/api/employees/invite', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ employee_id: row.id }),
+            })
+            const data = await res.json()
+            if (!res.ok) return null
+            return { row, url: data.setup_url as string }
+          } catch {
+            return null
+          }
+        })
+      )
+      const ok = results.filter(Boolean) as { row: InviteRow; url: string }[]
+      if (ok.length === 0) {
+        setError('Could not generate any links. Please try again.')
+        return
+      }
+      setLinks((m) => {
+        const next = { ...m }
+        ok.forEach(({ row, url }) => { next[row.id] = url })
+        return next
+      })
+      setBulkText(ok.map(({ row, url }) => `${row.name} (${row.phone}): ${url}`).join('\n'))
+      if (ok.length < rows.length) {
+        setError(`Generated ${ok.length} of ${rows.length} links — ${rows.length - ok.length} failed.`)
+      }
+    } finally {
+      setBulkBusy(false)
+    }
+  }
+
+  async function copyBulk() {
+    if (!bulkText) return
+    try {
+      await navigator.clipboard.writeText(bulkText)
+      setBulkCopied(true)
+      setTimeout(() => setBulkCopied(false), 1500)
+    } catch {
+      /* clipboard blocked — list is visible to select manually */
+    }
+  }
 
   async function generate(row: InviteRow) {
     setBusyId(row.id)
@@ -89,6 +147,11 @@ export default function InvitesClient({ initial }: { initial: InviteRow[] }) {
         <header className="iv-topbar">
           <div className="iv-title">Pending PIN invites</div>
           <div className="iv-right">
+            {rows.length > 0 && (
+              <button className="iv-btn primary" disabled={bulkBusy} onClick={generateAll}>
+                {bulkBusy ? 'Generating…' : '🔗 Generate all links'}
+              </button>
+            )}
             <Link href="/dashboard/employees" className="iv-btn ghost">All employees →</Link>
           </div>
         </header>
@@ -103,6 +166,19 @@ export default function InvitesClient({ initial }: { initial: InviteRow[] }) {
           </div>
 
           {error && <div className="iv-banner">{error}</div>}
+
+          {bulkText && (
+            <div className="iv-bulk">
+              <div className="iv-bulk-head">
+                <div className="iv-bulk-title">All setup links ({bulkText.split('\n').length})</div>
+                <div className="iv-bulk-actions">
+                  <button className="iv-btn primary" onClick={copyBulk}>{bulkCopied ? '✓ Copied' : '📋 Copy all'}</button>
+                  <button className="iv-btn ghost" onClick={() => setBulkText(null)}>Dismiss</button>
+                </div>
+              </div>
+              <textarea className="iv-bulk-text" readOnly value={bulkText} onFocus={(e) => e.currentTarget.select()} />
+            </div>
+          )}
 
           {rows.length === 0 ? (
             <div className="iv-empty">
@@ -167,6 +243,12 @@ const css = `
 .iv-intro-title{font-size:15px;font-weight:600;color:${T.white};margin-bottom:3px}
 .iv-intro-sub{font-size:12px;color:${T.dim};line-height:1.5;max-width:620px}
 .iv-banner{padding:12px 16px;border-radius:10px;font-size:13px;margin-bottom:16px;background:${T.redBg};border:1px solid #3d1a1a;color:${T.red}}
+.iv-bulk{background:${T.bgCard};border:1px solid ${T.border};border-radius:12px;padding:16px 18px;margin-bottom:20px}
+.iv-bulk-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:12px}
+.iv-bulk-title{font-size:13px;font-weight:600;color:${T.whiteMid}}
+.iv-bulk-actions{display:flex;gap:8px}
+.iv-bulk-text{width:100%;height:160px;resize:vertical;background:${T.bgSubtle};border:1px solid ${T.border};border-radius:8px;padding:10px 12px;font-family:'DM Mono',monospace;font-size:11px;line-height:1.7;color:${T.tealText};outline:none}
+.iv-bulk-text:focus{border-color:${T.teal}}
 .iv-empty{text-align:center;padding:80px 0;color:${T.dim}}
 .iv-table-wrap{background:${T.bgCard};border:1px solid ${T.border};border-radius:12px;overflow:hidden}
 .iv-table{width:100%;border-collapse:collapse;font-size:13px}

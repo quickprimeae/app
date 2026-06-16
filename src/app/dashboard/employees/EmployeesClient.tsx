@@ -4,10 +4,22 @@
 // reference-photo upload, deactivate. Data is fetched server-side and kept
 // fresh with router.refresh() after mutations.
 
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { EmployeeRow } from '@/lib/employees-data'
+import { STATUS_META, type DerivedStatus } from '@/lib/status'
+
+// Derived status -> existing .ep-badge color variant. clocked_in reuses the
+// green 'active' style; ready/awaiting/deactivated are grey variants.
+const BADGE_CLASS: Record<DerivedStatus, string> = {
+  clocked_in: 'active',
+  late: 'late',
+  absent: 'absent',
+  ready: 'ready',
+  awaiting_setup: 'awaiting',
+  deactivated: 'deactivated',
+}
 
 const T = {
   bg: '#0a0f0d', bgCard: '#111815', bgHover: '#161e1a', bgSubtle: '#0f1712',
@@ -29,7 +41,16 @@ function fmtDate(s: string | null) {
 }
 
 type SortKey = keyof EmployeeRow
-type StatusFilter = 'all' | 'active' | 'late' | 'absent' | 'flagged' | 'nophoto'
+type StatusFilter =
+  | 'all'
+  | 'clocked_in'
+  | 'late'
+  | 'absent'
+  | 'ready'
+  | 'awaiting_setup'
+  | 'deactivated'
+  | 'flagged'
+  | 'nophoto'
 
 export default function EmployeesClient({ initial }: { initial: EmployeeRow[] }) {
   const router = useRouter()
@@ -41,7 +62,17 @@ export default function EmployeesClient({ initial }: { initial: EmployeeRow[] })
   const [page, setPage] = useState(1)
   const [sort, setSort] = useState<{ key: SortKey; dir: number }>({ key: 'name', dir: 1 })
   const [busy, setBusy] = useState(false)
+  const [inviteLink, setInviteLink] = useState<string | null>(null)
+  const [inviteErr, setInviteErr] = useState<string | null>(null)
+  const [inviteCopied, setInviteCopied] = useState(false)
   const photoInput = useRef<HTMLInputElement | null>(null)
+
+  // Reset the per-employee invite UI whenever the open drawer changes.
+  useEffect(() => {
+    setInviteLink(null)
+    setInviteErr(null)
+    setInviteCopied(false)
+  }, [selected])
 
   const filtered = useMemo(() => {
     let d = ALL
@@ -85,9 +116,12 @@ export default function EmployeesClient({ initial }: { initial: EmployeeRow[] })
 
   const counts = {
     all: ALL.length,
-    active: ALL.filter((e) => e.status === 'active').length,
-    absent: ALL.filter((e) => e.status === 'absent').length,
+    clocked_in: ALL.filter((e) => e.status === 'clocked_in').length,
     late: ALL.filter((e) => e.status === 'late').length,
+    absent: ALL.filter((e) => e.status === 'absent').length,
+    ready: ALL.filter((e) => e.status === 'ready').length,
+    awaiting_setup: ALL.filter((e) => e.status === 'awaiting_setup').length,
+    deactivated: ALL.filter((e) => e.status === 'deactivated').length,
     flagged: ALL.filter((e) => e.flagged).length,
     nophoto: ALL.filter((e) => !e.hasPhoto).length,
   } as Record<string, number>
@@ -138,6 +172,39 @@ export default function EmployeesClient({ initial }: { initial: EmployeeRow[] })
     }
   }
 
+  async function generateInvite(emp: EmployeeRow) {
+    setBusy(true)
+    setInviteErr(null)
+    try {
+      const res = await fetch('/api/employees/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ employee_id: emp.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setInviteErr(data.error || 'Could not generate link.')
+        return
+      }
+      setInviteLink(data.setup_url)
+    } catch {
+      setInviteErr('Network error. Please try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function copyInvite() {
+    if (!inviteLink) return
+    try {
+      await navigator.clipboard.writeText(inviteLink)
+      setInviteCopied(true)
+      setTimeout(() => setInviteCopied(false), 1500)
+    } catch {
+      /* clipboard blocked — link is visible to copy manually */
+    }
+  }
+
   async function uploadPhoto(emp: EmployeeRow, file: File | null) {
     if (!file) return
     setBusy(true)
@@ -174,9 +241,12 @@ export default function EmployeesClient({ initial }: { initial: EmployeeRow[] })
               <div className="ep-filter-label">Today&apos;s status</div>
               {([
                 { id: 'all', label: 'All employees', dot: T.dim },
-                { id: 'active', label: 'Clocked in', dot: T.tealBright },
+                { id: 'clocked_in', label: 'Clocked in', dot: T.tealBright },
                 { id: 'late', label: 'Late', dot: T.amber },
                 { id: 'absent', label: 'Absent today', dot: T.red },
+                { id: 'ready', label: 'Ready', dot: T.dimMid },
+                { id: 'awaiting_setup', label: 'Awaiting setup', dot: T.dimMid },
+                { id: 'deactivated', label: 'Deactivated', dot: T.dimMid },
                 { id: 'flagged', label: 'Face flagged', dot: T.amber },
                 { id: 'nophoto', label: 'No photo', dot: T.dimMid },
               ] as const).map((f) => (
@@ -202,7 +272,7 @@ export default function EmployeesClient({ initial }: { initial: EmployeeRow[] })
           <main className="ep-main">
             <div className="ep-stats">
               <div className="ep-stat"><div className="ep-stat-val" style={{ color: T.white }}>{counts.all}</div><div className="ep-stat-label">Total employees</div></div>
-              <div className="ep-stat"><div className="ep-stat-val" style={{ color: T.tealBright }}>{counts.active}</div><div className="ep-stat-label">Clocked in today</div></div>
+              <div className="ep-stat"><div className="ep-stat-val" style={{ color: T.tealBright }}>{counts.clocked_in}</div><div className="ep-stat-label">Clocked in today</div></div>
               <div className="ep-stat"><div className="ep-stat-val" style={{ color: T.red }}>{counts.absent}</div><div className="ep-stat-label">Absent today</div></div>
               <div className="ep-stat"><div className="ep-stat-val" style={{ color: T.amber }}>{counts.flagged}</div><div className="ep-stat-label">Face flags pending</div></div>
             </div>
@@ -235,8 +305,8 @@ export default function EmployeesClient({ initial }: { initial: EmployeeRow[] })
                         </div>
                       </td>
                       <td>
-                        <span className={`ep-badge ${emp.flagged ? 'flagged' : emp.status}`}>
-                          {emp.flagged ? '⚠ flagged' : emp.status === 'active' ? '✓ in' : emp.status === 'late' ? '⏱ late' : '✗ absent'}
+                        <span className={`ep-badge ${emp.flagged ? 'flagged' : BADGE_CLASS[emp.status]}`}>
+                          {emp.flagged ? '⚠ flagged' : STATUS_META[emp.status].short}
                         </span>
                       </td>
                       <td><div className="ep-location-text">{emp.location}</div></td>
@@ -276,11 +346,10 @@ export default function EmployeesClient({ initial }: { initial: EmployeeRow[] })
                   <button className="ep-close" onClick={() => setSelected(null)}>✕</button>
                 </div>
                 <div className="ep-drawer-badges">
-                  <span className={`ep-badge ${selectedEmp.flagged ? 'flagged' : selectedEmp.status}`}>
-                    {selectedEmp.flagged ? '⚠ face flagged' : selectedEmp.status === 'active' ? '✓ clocked in' : selectedEmp.status === 'late' ? '⏱ late' : '✗ absent today'}
+                  <span className={`ep-badge ${selectedEmp.flagged ? 'flagged' : BADGE_CLASS[selectedEmp.status]}`}>
+                    {selectedEmp.flagged ? '⚠ face flagged' : STATUS_META[selectedEmp.status].label}
                   </span>
                   <span className="ep-badge" style={{ background: T.bgSubtle, color: T.dim, border: `1px solid ${T.border}` }}>{selectedEmp.client ?? 'No client'}</span>
-                  {!selectedEmp.active && <span className="ep-badge absent">deactivated</span>}
                   {!selectedEmp.hasPhoto && <span className="ep-badge nophoto">⚠ no reference photo</span>}
                 </div>
               </div>
@@ -326,6 +395,12 @@ export default function EmployeesClient({ initial }: { initial: EmployeeRow[] })
                   <div className="ep-drawer-section-title">Today&apos;s activity</div>
                   {selectedEmp.clockedInAt ? (
                     <div className="ep-activity-row"><div className="ep-activity-dot" style={{ background: T.tealBright }} /><div className="ep-activity-label">Clocked in</div><div className="ep-activity-time">{fmt(selectedEmp.clockedInAt)}</div></div>
+                  ) : selectedEmp.status === 'awaiting_setup' ? (
+                    <div className="ep-activity-row"><div className="ep-activity-dot" style={{ background: T.dim }} /><div className="ep-activity-label" style={{ color: T.dim }}>Awaiting PIN setup — can&apos;t clock in yet</div><div className="ep-activity-time">{selectedEmp.shiftHours}</div></div>
+                  ) : selectedEmp.status === 'deactivated' ? (
+                    <div className="ep-activity-row"><div className="ep-activity-dot" style={{ background: T.dimMid }} /><div className="ep-activity-label" style={{ color: T.dimMid }}>Employee deactivated</div></div>
+                  ) : selectedEmp.status === 'ready' ? (
+                    <div className="ep-activity-row"><div className="ep-activity-dot" style={{ background: T.dim }} /><div className="ep-activity-label" style={{ color: T.dim }}>Shift not started yet</div><div className="ep-activity-time">{selectedEmp.shiftHours}</div></div>
                   ) : (
                     <div className="ep-activity-row"><div className="ep-activity-dot" style={{ background: T.red }} /><div className="ep-activity-label" style={{ color: T.red }}>No clock-in recorded</div><div className="ep-activity-time">{selectedEmp.shiftHours}</div></div>
                   )}
@@ -346,6 +421,25 @@ export default function EmployeesClient({ initial }: { initial: EmployeeRow[] })
                     </div>
                   )}
                 </div>
+
+                {selectedEmp.status === 'awaiting_setup' && (
+                  <div className="ep-drawer-section">
+                    <div className="ep-drawer-section-title">PIN setup</div>
+                    {inviteErr && <div className="ep-invite-err">{inviteErr}</div>}
+                    {!inviteLink ? (
+                      <button className="ep-action-btn primary" disabled={busy} onClick={() => generateInvite(selectedEmp)}>
+                        {busy ? 'Generating…' : '🔗 Generate invite link'}
+                      </button>
+                    ) : (
+                      <div className="ep-invite-row">
+                        <input className="ep-invite-input" readOnly value={inviteLink} onFocus={(e) => e.currentTarget.select()} />
+                        <button className="ep-icon-btn" title="Copy link" onClick={copyInvite}>{inviteCopied ? '✓' : '📋'}</button>
+                        <button className="ep-icon-btn" title="Regenerate" disabled={busy} onClick={() => generateInvite(selectedEmp)}>↻</button>
+                      </div>
+                    )}
+                    <div className="ep-invite-hint">Active but hasn&apos;t set a PIN yet — they can&apos;t clock in. Share this 24-hour link to finish setup. Generating a new link invalidates any earlier one.</div>
+                  </div>
+                )}
 
                 <div className="ep-drawer-section">
                   <div className="ep-drawer-section-title">Actions</div>
@@ -414,6 +508,9 @@ const css = `
 .ep-badge.absent{background:${T.redBg};color:${T.red};border:1px solid #3d1a1a}
 .ep-badge.late{background:${T.amberBg};color:${T.amber};border:1px solid #5a3d0a}
 .ep-badge.flagged{background:${T.amberBg};color:${T.amber};border:1px solid #5a3d0a}
+.ep-badge.ready{background:${T.bgSubtle};color:${T.dimMid};border:1px solid ${T.border}}
+.ep-badge.awaiting{background:${T.bgSubtle};color:${T.dim};border:1px dashed ${T.borderMid}}
+.ep-badge.deactivated{background:${T.bgSubtle};color:${T.dimMid};border:1px solid ${T.border}}
 .ep-badge.nophoto{background:${T.bgSubtle};color:${T.dim};border:1px solid ${T.border}}
 .ep-mono{font-family:'DM Mono',monospace;font-size:12px;color:${T.dim}}
 .ep-location-text{font-size:12px;color:${T.whiteMid};max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -455,7 +552,16 @@ const css = `
 .ep-action-btn:hover{opacity:.85}
 .ep-action-btn:disabled{opacity:.5;cursor:not-allowed}
 .ep-action-btn.secondary{background:${T.bgSubtle};color:${T.whiteMid};border:1px solid ${T.border}}
+.ep-action-btn.primary{background:${T.tealMid};color:#fff}
 .ep-action-btn.danger{background:${T.redBg};color:${T.red};border:1px solid #3d1a1a}
+.ep-invite-err{padding:9px 12px;border-radius:8px;font-size:12px;margin-bottom:10px;background:${T.redBg};border:1px solid #3d1a1a;color:${T.red}}
+.ep-invite-row{display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.ep-invite-input{flex:1;min-width:0;background:${T.bgSubtle};border:1px solid ${T.border};border-radius:7px;padding:9px 10px;font-family:'DM Mono',monospace;font-size:11px;color:${T.tealText};outline:none}
+.ep-invite-input:focus{border-color:${T.teal}}
+.ep-icon-btn{width:34px;height:34px;flex-shrink:0;border-radius:7px;border:1px solid ${T.border};background:${T.bgSubtle};color:${T.whiteMid};font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s}
+.ep-icon-btn:hover{border-color:${T.tealMid};color:${T.tealBright}}
+.ep-icon-btn:disabled{opacity:.5;cursor:not-allowed}
+.ep-invite-hint{font-size:11px;color:${T.dim};line-height:1.5}
 .ep-hours-bar{height:6px;border-radius:3px;background:${T.border};overflow:hidden;margin-top:6px}
 .ep-hours-fill{height:100%;border-radius:3px;background:${T.tealMid};transition:width .4s}
 `
