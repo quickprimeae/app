@@ -46,6 +46,28 @@ export function parseCell(raw: string): Cell {
   return { kind: 'shift', start: `${pad2(sh)}:${pad2(sm)}:00`, end: `${pad2(eh)}:${pad2(em)}:00` }
 }
 
+// ── Week math (pure, UTC-based for stable calendar arithmetic) ─────────────
+// All inputs/outputs are YYYY-MM-DD strings, so there is no timezone drift.
+
+export function addDaysISO(iso: string, n: number): string {
+  const d = new Date(`${iso}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + n)
+  return d.toISOString().slice(0, 10)
+}
+
+// The Monday (week is Mon-first) on or before the given date.
+export function mondayOfISO(iso: string): string {
+  const d = new Date(`${iso}T00:00:00Z`)
+  const dow = d.getUTCDay() // 0 = Sun … 6 = Sat
+  const back = dow === 0 ? 6 : dow - 1
+  return addDaysISO(iso, -back)
+}
+
+// The 7 dates Mon…Sun for the week starting at mondayIso.
+export function weekDatesISO(mondayIso: string): string[] {
+  return Array.from({ length: 7 }, (_, i) => addDaysISO(mondayIso, i))
+}
+
 // Next n calendar days from a base date (default today), as YYYY-MM-DD. Used to
 // build the downloadable template's date columns.
 export function nextDates(n: number, from: Date = new Date()): string[] {
