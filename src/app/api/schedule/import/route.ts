@@ -25,6 +25,7 @@ type RowResult = {
   updated: number
   removed: number
   skipped: number
+  skippedCancelled: number
   errors: { date: string; reason: string }[]
 }
 
@@ -101,7 +102,7 @@ export async function POST(req: NextRequest) {
     const hhmm = (t: string) => String(t).slice(0, 5)
 
     for (const m of matched) {
-      const rr: RowResult = { row: m.row, identifier: m.identifier, name: m.emp ? `${m.emp.first_name} ${m.emp.last_name}`.trim() : undefined, added: 0, updated: 0, removed: 0, skipped: 0, errors: [] }
+      const rr: RowResult = { row: m.row, identifier: m.identifier, name: m.emp ? `${m.emp.first_name} ${m.emp.last_name}`.trim() : undefined, added: 0, updated: 0, removed: 0, skipped: 0, skippedCancelled: 0, errors: [] }
       if (!m.emp) {
         rr.errors.push({ date: '*', reason: m.reason || 'Unmatched' })
         results.push(rr)
@@ -109,9 +110,15 @@ export async function POST(req: NextRequest) {
       }
       const cells = rows[m.row - 2]?.cells ?? {}
       for (const date of dates) {
-        const parsed = parseCell(cells[date] ?? '')
         const key = `${m.emp.id}|${date}`
         const prior = existing.get(key)
+        // A manually cancelled shift is protected: re-import never overwrites it.
+        // Reviving it stays a deliberate grid action.
+        if (prior && prior.status === 'cancelled') {
+          rr.skippedCancelled++
+          continue
+        }
+        const parsed = parseCell(cells[date] ?? '')
         if (parsed.kind === 'error') {
           rr.errors.push({ date, reason: parsed.reason })
           continue
@@ -161,9 +168,10 @@ export async function POST(req: NextRequest) {
         updated: a.updated + r.updated,
         removed: a.removed + r.removed,
         skipped: a.skipped + r.skipped,
+        skippedCancelled: a.skippedCancelled + r.skippedCancelled,
         errors: a.errors + r.errors.length,
       }),
-      { added: 0, updated: 0, removed: 0, skipped: 0, errors: 0 }
+      { added: 0, updated: 0, removed: 0, skipped: 0, skippedCancelled: 0, errors: 0 }
     )
 
     // One append-only audit row summarizing the import.
