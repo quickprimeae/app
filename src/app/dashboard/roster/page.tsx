@@ -51,6 +51,11 @@ export default async function RosterPage({
       .lte('date', dates[6]),
   ])
 
+  // Surface read failures instead of silently rendering an empty grid — a
+  // swallowed permission error here once disguised a real bug as "no data".
+  const loadError =
+    locRes.error?.message ?? empRes.error?.message ?? shiftRes.error?.message ?? null
+
   const locations: RosterLocation[] = ((locRes.data ?? []) as any[]).map((l) => ({
     id: l.id,
     name: l.name,
@@ -85,6 +90,7 @@ export default async function RosterPage({
       employees={employees}
       locations={locations}
       shifts={shifts}
+      loadError={loadError}
     />
   )
 }

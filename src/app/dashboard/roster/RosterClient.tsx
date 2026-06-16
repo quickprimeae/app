@@ -42,10 +42,11 @@ function rangeLabel(a: string, b: string) {
 type EditTarget = { employee: RosterEmployee; date: string; shift: RosterShift | null }
 
 export default function RosterClient({
-  weekStart, dates, prevWeek, nextWeek, employees, locations, shifts,
+  weekStart, dates, prevWeek, nextWeek, employees, locations, shifts, loadError,
 }: {
   weekStart: string; dates: string[]; prevWeek: string; nextWeek: string
   employees: RosterEmployee[]; locations: RosterLocation[]; shifts: RosterShift[]
+  loadError?: string | null
 }) {
   const router = useRouter()
   const [locFilter, setLocFilter] = useState<'all' | string>('all')
@@ -162,7 +163,14 @@ export default function RosterClient({
         </header>
 
         <main className="rs-main">
-          {rows.length === 0 ? (
+          {loadError ? (
+            <div className="rs-error">
+              <div className="rs-error-icon">⚠</div>
+              <div className="rs-error-title">Couldn&apos;t load the roster</div>
+              <div className="rs-error-msg">{loadError}</div>
+              <div className="rs-error-hint">This is a real load failure, not an empty schedule. Fix the cause, then refresh.</div>
+            </div>
+          ) : rows.length === 0 ? (
             <div className="rs-empty">No active pickers{locFilter !== 'all' ? ' at this location' : ''}. Assign a location and import a week to get started.</div>
           ) : (
             <div className="rs-grid-wrap">
@@ -218,13 +226,13 @@ export default function RosterClient({
             </div>
           )}
 
-          <div className="rs-legend">
+          {!loadError && <div className="rs-legend">
             <span><i className="rs-dot sch" /> Scheduled</span>
             <span><i className="rs-dot cover" /> Cover</span>
             <span><i className="rs-dot reassigned" /> Reassigned away</span>
             <span><i className="rs-dot cancelled" /> Cancelled</span>
             <span><i className="rs-dot off" /> Off (click to add)</span>
-          </div>
+          </div>}
         </main>
 
         {edit && (
@@ -328,6 +336,11 @@ const css = `
 .rs-btn:disabled{opacity:.5;cursor:not-allowed}
 .rs-main{padding:22px 24px}
 .rs-empty{text-align:center;padding:70px 0;color:${T.dim};font-size:14px}
+.rs-error{text-align:center;padding:64px 20px;max-width:560px;margin:0 auto;background:${T.redBg};border:1px solid #3d1a1a;border-radius:14px}
+.rs-error-icon{font-size:34px;margin-bottom:10px}
+.rs-error-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:600;color:${T.red};margin-bottom:8px}
+.rs-error-msg{font-family:'DM Mono',monospace;font-size:12px;color:${T.whiteMid};background:${T.bgSubtle};border:1px solid ${T.border};border-radius:8px;padding:10px 12px;margin:0 auto 12px;max-width:480px;word-break:break-word}
+.rs-error-hint{font-size:12px;color:${T.dim};line-height:1.5}
 .rs-grid-wrap{background:${T.bgCard};border:1px solid ${T.border};border-radius:12px;overflow:auto;max-height:calc(100vh - 160px)}
 .rs-grid{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
 .rs-grid thead th{position:sticky;top:0;z-index:2;background:${T.bgSubtle};padding:9px 10px;text-align:center;border-bottom:1px solid ${T.border};white-space:nowrap;min-width:96px}
