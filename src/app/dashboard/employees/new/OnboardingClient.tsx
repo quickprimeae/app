@@ -1,8 +1,10 @@
 'use client'
 // src/app/dashboard/employees/new/OnboardingClient.tsx
-// 4-step onboarding wizard wired to POST /api/employees (+ WhatsApp invite)
-// and reference-photo upload. Fixes the URL.createObjectURL leak (bug #7) by
-// revoking the previous blob URL on replace and on unmount.
+// 4-step onboarding wizard wired to POST /api/employees and reference-photo
+// upload. Creating an employee no longer sends a PIN invite — admins send the
+// setup link afterwards from the Pending invites page. Fixes the
+// URL.createObjectURL leak (bug #7) by revoking the previous blob URL on
+// replace and on unmount.
 
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
@@ -22,7 +24,7 @@ const STEPS_META = [
   { label: 'Personal details', desc: 'Name, phone, nationality' },
   { label: 'Assignment', desc: 'Location & shift' },
   { label: 'Reference photo', desc: 'For identity verification' },
-  { label: 'Review & confirm', desc: 'Check before sending invite' },
+  { label: 'Review & confirm', desc: 'Check before creating' },
 ]
 
 const EMPTY = {
@@ -43,7 +45,7 @@ export default function OnboardingClient({ tenantId, locations, supervisors }: {
   const [data, setData] = useState({ ...EMPTY })
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [result, setResult] = useState<{ employee_number?: string; whatsapp_sent?: boolean } | null>(null)
+  const [result, setResult] = useState<{ employee_number?: string } | null>(null)
   const photoUrlRef = useRef<string>('')
 
   // Revoke the last object URL when the component unmounts (bug #7).
@@ -102,7 +104,7 @@ export default function OnboardingClient({ tenantId, locations, supervisors }: {
         fd.append('file', data.photoFile)
         await fetch('/api/employees/photo', { method: 'POST', body: fd })
       }
-      setResult({ employee_number: body.employee_number, whatsapp_sent: body.whatsapp_sent })
+      setResult({ employee_number: body.employee_number })
       setStep(4)
     } catch {
       setError('Network error. Please try again.')
@@ -135,7 +137,7 @@ export default function OnboardingClient({ tenantId, locations, supervisors }: {
           <aside className="ob-sidebar">
             <Link href="/dashboard" className="ob-logo">OPSPRO</Link>
             <div className="ob-sidebar-title">New employee<br />onboarding</div>
-            <div className="ob-sidebar-sub">Register a picker and send them their PIN setup link.</div>
+            <div className="ob-sidebar-sub">Register a picker, then send their PIN setup link from Pending invites.</div>
             <div className="ob-steps">
               {STEPS_META.map((s, i) => {
                 const state = i < step ? 'done' : i === step ? 'active' : 'upcoming'
@@ -158,7 +160,7 @@ export default function OnboardingClient({ tenantId, locations, supervisors }: {
                 <div className="ob-progress"><div className="ob-progress-fill" style={{ width: `${progress}%` }} /></div>
                 <div className="ob-step-header">
                   <div className="ob-step-tag">Step {step + 1} of 4</div>
-                  <h1 className="ob-step-h">{['Who are we registering?', 'Where are they deployed?', 'Reference photo', 'Ready to send invite?'][step]}</h1>
+                  <h1 className="ob-step-h">{['Who are we registering?', 'Where are they deployed?', 'Reference photo', 'Ready to create?'][step]}</h1>
                 </div>
 
                 {step === 0 && (
@@ -247,7 +249,7 @@ export default function OnboardingClient({ tenantId, locations, supervisors }: {
                         ['Reference photo', data.photoUrl ? '✓ Uploaded' : '⚠ Not uploaded'],
                       ].map(([k, v]) => <tr key={k}><td>{k}</td><td>{v}</td></tr>)}
                     </tbody></table>
-                    <div className="ob-info-box teal"><span className="ob-info-box-icon">📱</span><div className="ob-info-box-text">After confirming, <strong>{data.firstName || 'the employee'}</strong> receives a WhatsApp message at <strong>{data.phone || 'their number'}</strong> with a secure link to set their 6-digit PIN. The link expires in 24 hours.</div></div>
+                    <div className="ob-info-box teal"><span className="ob-info-box-icon">📱</span><div className="ob-info-box-text">After confirming, <strong>{data.firstName || 'the employee'}</strong> is created with no PIN yet. Send their secure 6-digit-PIN setup link from <strong>Pending invites</strong> (or their profile) when you&apos;re ready — it stays valid for 24 hours once sent.</div></div>
                   </div>
                 )}
 
@@ -255,7 +257,7 @@ export default function OnboardingClient({ tenantId, locations, supervisors }: {
 
                 <div className="ob-actions">
                   {step > 0 ? <button className="ob-btn secondary" onClick={() => setStep((s) => s - 1)} disabled={submitting}>← Back</button> : <Link href="/dashboard/employees" className="ob-btn ghost">Cancel</Link>}
-                  <button className="ob-btn primary" disabled={!canAdvance() || submitting} onClick={advance}>{submitting ? 'Sending…' : step < 3 ? 'Continue →' : '✓ Confirm & send invite'}</button>
+                  <button className="ob-btn primary" disabled={!canAdvance() || submitting} onClick={advance}>{submitting ? 'Creating…' : step < 3 ? 'Continue →' : '✓ Confirm & create'}</button>
                 </div>
               </>
             ) : (
@@ -263,8 +265,8 @@ export default function OnboardingClient({ tenantId, locations, supervisors }: {
                 <div className="ob-success-ring">✓</div>
                 <div className="ob-success-h"><em>{fullName}</em> is registered</div>
                 <div className="ob-success-sub">
-                  Their profile has been created{result?.whatsapp_sent ? ' and a WhatsApp invite has been sent' : ''} to <strong>{data.phone}</strong> to set up their PIN.
-                  {result && result.whatsapp_sent === false && <><br /><span style={{ color: T.amber }}>Note: the WhatsApp invite could not be sent — resend from their profile.</span></>}
+                  Their profile has been created. They have no PIN yet — send their setup link to <strong>{data.phone}</strong> from{' '}
+                  <Link href="/dashboard/employees/invites" style={{ color: T.tealMid, fontWeight: 600 }}>Pending invites</Link>.
                 </div>
                 <div className="ob-success-details">
                   <div className="ob-success-stat"><div className="ob-success-stat-val">{result?.employee_number || 'QP-AUTO'}</div><div className="ob-success-stat-label">Employee ID</div></div>

@@ -3,13 +3,12 @@
 // Columns: name, phone, nationality, shift_type, monthly_salary, shift_days,
 // joining_date, location, supervisor, vendor, branch. hourly_rate is derived
 // (monthly_salary / 26 / shift_hours). Shift start/end are NOT set — pickers
-// inherit the location defaults. Sends each a PIN-setup WhatsApp invite.
+// inherit the location defaults. PIN setup links are NOT sent here — invite
+// the imported employees afterwards from the Pending invites page.
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase'
 import { getOpsContext } from '@/lib/ops'
-import { generateSetupToken, buildSetupUrl } from '@/lib/pin'
-import { sendPinSetupInvite } from '@/lib/whatsapp'
 import { hourlyRateFromSalary } from '@/lib/salary'
 import { normalizePhone } from '@/lib/phone'
 
@@ -57,7 +56,6 @@ type ResultRow = {
   phone?: string
   status: 'added' | 'skipped' | 'error'
   reason?: string
-  whatsapp_sent?: boolean
 }
 
 export async function POST(req: NextRequest) {
@@ -140,7 +138,8 @@ export async function POST(req: NextRequest) {
       const supKey = clean(r.supervisor).toLowerCase()
       const supervisor_id = supKey ? supByName.get(supKey) ?? null : null
 
-      const { token, hash: tokenHash, expires } = generateSetupToken()
+      // No PIN setup token is minted here — invites are sent later from the
+      // Pending invites page, so imported employees read "Not sent yet".
       const { data: emp, error } = await supabase
         .from('employees')
         .insert({
@@ -159,8 +158,6 @@ export async function POST(req: NextRequest) {
           branch: clean(r.branch) || null,
           // shift_start/shift_end intentionally unset — inherit location defaults.
           start_date: startDate,
-          pin_setup_token_hash: tokenHash,
-          pin_setup_expires: expires.toISOString(),
           employee_number: '',
           active: true,
         })
@@ -172,8 +169,7 @@ export async function POST(req: NextRequest) {
       seenInFile.add(phone)
       added++
 
-      const { success: waSent } = await sendPinSetupInvite({ firstName: first, phone, setupUrl: buildSetupUrl(token) })
-      results.push({ row: rowNum, phone, status: 'added', whatsapp_sent: waSent })
+      results.push({ row: rowNum, phone, status: 'added' })
     }
 
     return NextResponse.json({

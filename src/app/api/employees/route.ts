@@ -1,10 +1,11 @@
 // src/app/api/employees/route.ts
-// GET: list employees | POST: create employee + send WhatsApp invite
+// GET: list employees | POST: create employee. The PIN setup link is NOT sent
+// here — it is generated and sent explicitly from the Pending invites page
+// (or the employee drawer). New employees start with no setup token, so they
+// show as "Not sent yet" until an admin invites them.
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase'
-import { generateSetupToken, buildSetupUrl } from '@/lib/pin'
-import { sendPinSetupInvite } from '@/lib/whatsapp'
 import { hourlyRateFromSalary } from '@/lib/salary'
 import { normalizePhone } from '@/lib/phone'
 import { isValidShiftWindow } from '@/lib/shift'
@@ -103,10 +104,9 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Generate PIN setup token
-    const { token, hash: tokenHash, expires } = generateSetupToken()
-
-    // Create employee record
+    // Create employee record. No PIN setup token is minted here — the invite is
+    // sent later from the Pending invites page, so the employee reads
+    // "Not sent yet" until then.
     const { data: employee, error: insertErr } = await supabase
       .from('employees')
       .insert({
@@ -126,8 +126,6 @@ export async function POST(req: NextRequest) {
         start_date: start_date || new Date().toISOString().split('T')[0],
         iban: iban || null,
         bank_account_name: bank_account_name || null,
-        pin_setup_token_hash: tokenHash,
-        pin_setup_expires: expires.toISOString(),
         employee_number: '', // trigger will set this
       })
       .select('id, employee_number, first_name')
@@ -141,23 +139,11 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Send WhatsApp invite
-    const setupUrl = buildSetupUrl(token)
-    const { success: waSent, error: waError } = await sendPinSetupInvite({
-      firstName: first_name,
-      phone: normalizedPhone,
-      setupUrl,
-    })
-
     return NextResponse.json({
       success: true,
       employee_id: employee.id,
       employee_number: employee.employee_number,
       hourly_rate,
-      whatsapp_sent: waSent,
-      whatsapp_error: waError || null,
-      // In development, return the setup URL directly for testing
-      ...(process.env.NODE_ENV === 'development' ? { setup_url: setupUrl } : {}),
     })
   } catch (err) {
     console.error('Employee create error:', err)

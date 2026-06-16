@@ -1,7 +1,8 @@
 'use client'
 // src/app/dashboard/employees/bulk/BulkClient.tsx
 // CSV roster upload: parse + validate client-side, then POST valid rows to
-// /api/employees/bulk (real inserts + WhatsApp invites). Shows per-row results.
+// /api/employees/bulk (real inserts). PIN invites are sent afterwards from the
+// Pending invites page. Shows per-row results.
 
 import { useState, useRef } from 'react'
 import Link from 'next/link'
@@ -250,7 +251,7 @@ export default function BulkClient() {
               <div className="bu-uploading">
                 <div className="bu-spinner" />
                 <div className="bu-uploading-title">Importing employees…</div>
-                <div className="bu-uploading-sub">Creating profiles and sending PIN setup invites.</div>
+                <div className="bu-uploading-sub">Creating employee profiles.</div>
               </div>
             )}
 
@@ -258,10 +259,9 @@ export default function BulkClient() {
               <div className="bu-success">
                 <div className="bu-success-ring">✓</div>
                 <div className="bu-success-h"><em>{serverResult.added} added</em>{serverResult.skipped > 0 ? `, ${serverResult.skipped} skipped` : ''}</div>
-                <div className="bu-success-sub">Each newly added employee receives a WhatsApp link to set their 6-digit PIN. Rows whose phone already exists are skipped, so you can re-upload a growing master sheet safely.</div>
+                <div className="bu-success-sub">Profiles are created with no PIN yet — send their setup links from <strong>Pending invites</strong>. Rows whose phone already exists are skipped, so you can re-upload a growing master sheet safely.</div>
                 <div className="bu-success-cards">
                   <div className="bu-success-card"><div className="bu-success-card-val">{serverResult.added}</div><div className="bu-success-card-label">Added</div></div>
-                  <div className="bu-success-card"><div className="bu-success-card-val">{serverResult.results.filter((r) => r.whatsapp_sent).length}</div><div className="bu-success-card-label">Invites sent</div></div>
                   <div className="bu-success-card"><div className="bu-success-card-val">{serverResult.skipped}</div><div className="bu-success-card-label">Skipped (exists)</div></div>
                   {serverResult.errors > 0 && <div className="bu-success-card" style={{ borderColor: T.redBorder, background: T.redBg }}><div className="bu-success-card-val" style={{ color: T.red }}>{serverResult.errors}</div><div className="bu-success-card-label" style={{ color: T.red }}>Errors</div></div>}
                 </div>
@@ -272,7 +272,8 @@ export default function BulkClient() {
                   </div>
                 )}
                 <div style={{ display: 'flex', gap: 12 }}>
-                  <button className="bu-btn primary" onClick={() => { setRows([]); setView(VIEW.UPLOAD); setFilter('all'); setServerResult(null) }}>Upload another file</button>
+                  <Link href="/dashboard/employees/invites" className="bu-btn primary">Send PIN invites →</Link>
+                  <button className="bu-btn secondary" onClick={() => { setRows([]); setView(VIEW.UPLOAD); setFilter('all'); setServerResult(null) }}>Upload another file</button>
                   <Link href="/dashboard/employees" className="bu-btn secondary">View roster →</Link>
                 </div>
               </div>

@@ -31,7 +31,7 @@ function expiryLabel(iso: string | null) {
   const ms = new Date(iso).getTime() - Date.now()
   if (ms <= 0) return { text: 'Link expired', stale: true }
   const h = Math.floor(ms / 3600000)
-  return { text: h >= 1 ? `Link valid ~${h}h` : 'Link valid <1h', stale: false }
+  return { text: h >= 1 ? `Active, expires in ${h}h` : 'Active, expires <1h', stale: false }
 }
 
 function waMessage(firstName: string, url: string) {
