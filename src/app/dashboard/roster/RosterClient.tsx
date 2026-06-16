@@ -52,6 +52,8 @@ export default function RosterClient({
   const [locFilter, setLocFilter] = useState<'all' | string>('all')
   const [edit, setEdit] = useState<EditTarget | null>(null)
   const [form, setForm] = useState<{ start: string; end: string }>({ start: '08:00', end: '19:00' })
+  const [coverMode, setCoverMode] = useState(false)
+  const [coverEmpId, setCoverEmpId] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -80,6 +82,8 @@ export default function RosterClient({
     if (!employee.locationId) return // can't schedule without a location
     const shift = shiftByKey.get(`${employee.id}|${date}`) ?? null
     setError(null)
+    setCoverMode(false)
+    setCoverEmpId('')
     if (shift && shift.status !== 'cancelled') {
       setForm({ start: shift.start, end: shift.end })
     } else {
@@ -130,6 +134,40 @@ export default function RosterClient({
       })
       const body = await res.json()
       if (!res.ok) { setError(body.error || 'Could not cancel.'); return }
+      setEdit(null)
+      router.refresh()
+    } catch {
+      setError('Network error.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // Pickers who can cover: same location, not the original, and not already
+  // working (status='scheduled') that day.
+  const eligibleCovers = useMemo(() => {
+    if (!edit) return []
+    return employees.filter(
+      (e) =>
+        e.locationId === edit.employee.locationId &&
+        e.id !== edit.employee.id &&
+        shiftByKey.get(`${e.id}|${edit.date}`)?.status !== 'scheduled'
+    )
+  }, [edit, employees, shiftByKey])
+
+  async function assignCover() {
+    if (!edit?.shift || !coverEmpId) return
+    if (form.end <= form.start) { setError('End time must be after start time.'); return }
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/schedule/cover', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ original_shift_id: edit.shift.id, cover_employee_id: coverEmpId, start_time: form.start, end_time: form.end }),
+      })
+      const body = await res.json()
+      if (!res.ok) { setError(body.error || 'Could not assign cover.'); return }
       setEdit(null)
       router.refresh()
     } catch {
@@ -246,35 +284,68 @@ export default function RosterClient({
                 <button className="rs-close" onClick={() => setEdit(null)} disabled={busy}>✕</button>
               </div>
 
-              {edit.shift?.status === 'reassigned' && (
-                <div className="rs-modal-note">This shift was reassigned to {empName.get(edit.shift.reassignedTo ?? '') ?? 'a cover picker'}. Saving new times re-activates it for {edit.employee.name.split(' ')[0]}.</div>
+              {coverMode ? (
+                <>
+                  <div className="rs-modal-note">
+                    Assign someone to cover <strong>{edit.employee.name.split(' ')[0]}</strong> on {dayHeader(edit.date).wd} {dayHeader(edit.date).dm}.
+                    The original is marked <em>reassigned</em>; the cover picker is the one tracked for attendance.
+                  </div>
+                  <div className="rs-modal-body" style={{ flexDirection: 'column' }}>
+                    <label className="rs-field">
+                      <span>Cover picker</span>
+                      <select className="rs-cover-select" value={coverEmpId} onChange={(e) => setCoverEmpId(e.target.value)}>
+                        <option value="">Select a picker…</option>
+                        {eligibleCovers.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+                      </select>
+                    </label>
+                    <div style={{ display: 'flex', gap: 12 }}>
+                      <label className="rs-field"><span>Start</span><input type="time" value={form.start} onChange={(e) => setForm((f) => ({ ...f, start: e.target.value }))} /></label>
+                      <label className="rs-field"><span>End</span><input type="time" value={form.end} onChange={(e) => setForm((f) => ({ ...f, end: e.target.value }))} /></label>
+                    </div>
+                  </div>
+                  {eligibleCovers.length === 0 && <div className="rs-modal-note" style={{ color: T.amber }}>No pickers at this location are free that day.</div>}
+                  {error && <div className="rs-modal-err">{error}</div>}
+                  <div className="rs-modal-actions">
+                    <button className="rs-btn ghost" onClick={() => { setCoverMode(false); setError(null) }} disabled={busy}>← Back</button>
+                    <button className="rs-btn primary" onClick={assignCover} disabled={busy || !coverEmpId}>{busy ? 'Assigning…' : 'Confirm cover'}</button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {edit.shift?.status === 'reassigned' && (
+                    <div className="rs-modal-note">This shift was reassigned to {empName.get(edit.shift.reassignedTo ?? '') ?? 'a cover picker'}. Saving new times re-activates it for {edit.employee.name.split(' ')[0]}.</div>
+                  )}
+                  {edit.shift?.origin === 'cover' && edit.shift.status === 'scheduled' && (
+                    <div className="rs-modal-note">This is a cover shift.</div>
+                  )}
+
+                  <div className="rs-modal-body">
+                    <label className="rs-field">
+                      <span>Start</span>
+                      <input type="time" value={form.start} onChange={(e) => setForm((f) => ({ ...f, start: e.target.value }))} />
+                    </label>
+                    <label className="rs-field">
+                      <span>End</span>
+                      <input type="time" value={form.end} onChange={(e) => setForm((f) => ({ ...f, end: e.target.value }))} />
+                    </label>
+                  </div>
+
+                  {error && <div className="rs-modal-err">{error}</div>}
+
+                  <div className="rs-modal-actions">
+                    {edit.shift && edit.shift.status !== 'cancelled' ? (
+                      <button className="rs-btn danger" onClick={cancelShift} disabled={busy}>Cancel shift</button>
+                    ) : <span />}
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      {edit.shift?.status === 'scheduled' && (
+                        <button className="rs-btn cover" onClick={() => { setCoverMode(true); setError(null) }} disabled={busy}>Assign cover</button>
+                      )}
+                      <button className="rs-btn ghost" onClick={() => setEdit(null)} disabled={busy}>Close</button>
+                      <button className="rs-btn primary" onClick={save} disabled={busy}>{busy ? 'Saving…' : edit.shift && edit.shift.status !== 'cancelled' ? 'Save times' : 'Add shift'}</button>
+                    </div>
+                  </div>
+                </>
               )}
-              {edit.shift?.origin === 'cover' && edit.shift.status === 'scheduled' && (
-                <div className="rs-modal-note">This is a cover shift.</div>
-              )}
-
-              <div className="rs-modal-body">
-                <label className="rs-field">
-                  <span>Start</span>
-                  <input type="time" value={form.start} onChange={(e) => setForm((f) => ({ ...f, start: e.target.value }))} />
-                </label>
-                <label className="rs-field">
-                  <span>End</span>
-                  <input type="time" value={form.end} onChange={(e) => setForm((f) => ({ ...f, end: e.target.value }))} />
-                </label>
-              </div>
-
-              {error && <div className="rs-modal-err">{error}</div>}
-
-              <div className="rs-modal-actions">
-                {edit.shift && edit.shift.status !== 'cancelled' ? (
-                  <button className="rs-btn danger" onClick={cancelShift} disabled={busy}>Cancel shift</button>
-                ) : <span />}
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button className="rs-btn ghost" onClick={() => setEdit(null)} disabled={busy}>Close</button>
-                  <button className="rs-btn primary" onClick={save} disabled={busy}>{busy ? 'Saving…' : edit.shift && edit.shift.status !== 'cancelled' ? 'Save times' : 'Add shift'}</button>
-                </div>
-              </div>
             </div>
           </div>
         )}
@@ -333,7 +404,10 @@ const css = `
 .rs-btn.primary{background:${T.tealMid};color:#fff}.rs-btn.primary:hover{opacity:.9}
 .rs-btn.ghost{background:${T.bgSubtle};color:${T.whiteMid};border:1px solid ${T.border}}.rs-btn.ghost:hover{border-color:${T.teal};color:${T.tealBright}}
 .rs-btn.danger{background:${T.redBg};color:${T.red};border:1px solid #3d1a1a}
+.rs-btn.cover{background:${T.blueBg};color:${T.blue};border:1px solid #15384a}.rs-btn.cover:hover{border-color:${T.blue}}
 .rs-btn:disabled{opacity:.5;cursor:not-allowed}
+.rs-cover-select{background:${T.bgSubtle};border:1px solid ${T.border};border-radius:8px;padding:10px 12px;font-family:'DM Sans',sans-serif;font-size:14px;color:${T.white};outline:none;cursor:pointer;width:100%}
+.rs-cover-select:focus{border-color:${T.teal}}
 .rs-main{padding:22px 24px}
 .rs-empty{text-align:center;padding:70px 0;color:${T.dim};font-size:14px}
 .rs-error{text-align:center;padding:64px 20px;max-width:560px;margin:0 auto;background:${T.redBg};border:1px solid #3d1a1a;border-radius:14px}
