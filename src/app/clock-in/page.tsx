@@ -322,15 +322,16 @@ export default function PickerClockIn() {
       if (action === 'in') {
         setClockedInAt(new Date(data.timestamp ?? Date.now()))
         setClockedOut(false)
-        if (data.selfie_required && data.clock_event_id) {
-          setPendingEventId(data.clock_event_id)
-          setStep(STEPS.SELFIE)
-        } else {
-          setStep(STEPS.SUCCESS)
-        }
       } else {
         setHoursWorked(typeof data.hours_worked === 'number' ? data.hours_worked : null)
         setClockedOut(true)
+      }
+
+      // Every punch (in AND out) requires a live selfie before the success screen.
+      if (data.selfie_required && data.clock_event_id) {
+        setPendingEventId(data.clock_event_id)
+        setStep(STEPS.SELFIE)
+      } else {
         setStep(STEPS.SUCCESS)
       }
     } catch {

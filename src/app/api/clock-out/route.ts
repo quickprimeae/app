@@ -101,6 +101,7 @@ export async function POST(req: NextRequest) {
         geofence_passed: true,
         pin_verified: true,
         verification_method: 'pin',
+        selfie_triggered: true, // mandatory live selfie on every punch
         device_fingerprint,
       })
       .select('id, timestamp')
@@ -144,6 +145,7 @@ export async function POST(req: NextRequest) {
       clock_event_id: clockOutEvent.id,
       timestamp: clockOutEvent.timestamp,
       hours_worked: hoursRaw,
+      selfie_required: true,
     })
   } catch (err) {
     console.error('Clock-out error:', err)

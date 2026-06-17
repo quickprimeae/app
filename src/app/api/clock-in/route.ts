@@ -134,8 +134,10 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // ── 9. Determine if selfie check needed (1 in 5) ──────
-    const selfieTriggered = Math.random() < 0.2
+    // ── 9. Selfie check is MANDATORY on every punch ───────
+    // A live-camera selfie is required for every clock-in (anti-fraud: a random
+    // check can't catch buddy-punching — the face must be verified every time).
+    const selfieTriggered = true
 
     // ── 10. Record clock-in event ─────────────────────────
     const { data: clockEvent, error: insertErr } = await supabase
