@@ -22,13 +22,23 @@ export async function loadFaceModels(): Promise<void> {
     modelsPromise = (async () => {
       const faceapi = await getFaceApi()
       const url = '/models'
+      const t0 = Date.now()
+      console.log('[face] loading models from', url, '…')
       await Promise.all([
         faceapi.nets.ssdMobilenetv1.loadFromUri(url),
         faceapi.nets.faceLandmark68Net.loadFromUri(url),
         faceapi.nets.faceRecognitionNet.loadFromUri(url),
       ])
+      // Make sure a tf backend is actually initialized (webgl, else cpu/wasm).
+      try {
+        await faceapi.tf?.ready?.()
+        console.log('[face] models loaded in', Date.now() - t0, 'ms; tf backend:', faceapi.tf?.getBackend?.())
+      } catch {
+        console.log('[face] models loaded in', Date.now() - t0, 'ms')
+      }
     })().catch((e) => {
       modelsPromise = null // allow retry on failure
+      console.error('[face] model load FAILED:', e)
       throw e
     })
   }
@@ -52,11 +62,17 @@ type FaceInput = HTMLImageElement | HTMLCanvasElement | HTMLVideoElement
 export async function computeDescriptor(input: FaceInput): Promise<Float32Array | null> {
   const faceapi = await getFaceApi()
   await loadFaceModels()
+  console.log('[face] detecting face…')
   const result = await faceapi
     .detectSingleFace(input)
     .withFaceLandmarks()
     .withFaceDescriptor()
-  return result?.descriptor ?? null
+  if (!result) {
+    console.warn('[face] no face detected in the image')
+    return null
+  }
+  console.log('[face] face detected; descriptor length', result.descriptor?.length)
+  return result.descriptor ?? null
 }
 
 // Compute a descriptor from a Blob or object/data URL.

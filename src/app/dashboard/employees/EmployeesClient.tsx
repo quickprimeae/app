@@ -65,6 +65,7 @@ export default function EmployeesClient({ initial }: { initial: EmployeeRow[] })
   const [inviteLink, setInviteLink] = useState<string | null>(null)
   const [inviteErr, setInviteErr] = useState<string | null>(null)
   const [inviteCopied, setInviteCopied] = useState(false)
+  const [photoMsg, setPhotoMsg] = useState<{ kind: 'info' | 'ok' | 'warn' | 'err'; text: string } | null>(null)
   const photoInput = useRef<HTMLInputElement | null>(null)
 
   // Reset the per-employee invite UI whenever the open drawer changes.
@@ -72,6 +73,7 @@ export default function EmployeesClient({ initial }: { initial: EmployeeRow[] })
     setInviteLink(null)
     setInviteErr(null)
     setInviteCopied(false)
+    setPhotoMsg(null)
   }, [selected])
 
   const filtered = useMemo(() => {
@@ -208,31 +210,58 @@ export default function EmployeesClient({ initial }: { initial: EmployeeRow[] })
   async function uploadPhoto(emp: EmployeeRow, file: File | null) {
     if (!file) return
     setBusy(true)
+    setPhotoMsg({ kind: 'info', text: 'Uploading photo…' })
     try {
+      // 1) Store the reference photo.
       const fd = new FormData()
       fd.append('employee_id', emp.id)
       fd.append('file', file)
-      await fetch('/api/employees/photo', { method: 'POST', body: fd })
-      // Compute the face descriptor on-device from the reference photo and store
-      // it (just the numbers). Best-effort: if no face is found or the model
-      // fails to load, the photo is still saved and the descriptor stays null
-      // (punches then auto-flag for review).
-      try {
-        const { computeDescriptorFromSource, descriptorToArray } = await import('@/lib/face')
-        const d = await computeDescriptorFromSource(file)
-        if (d) {
-          await fetch('/api/employees/face-descriptor', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ employee_id: emp.id, descriptor: descriptorToArray(d) }),
-          })
-        }
-      } catch {
-        /* face model unavailable — photo saved without a descriptor */
+      const up = await fetch('/api/employees/photo', { method: 'POST', body: fd })
+      if (!up.ok) {
+        const b = await up.json().catch(() => ({}))
+        setPhotoMsg({ kind: 'err', text: `Photo upload failed: ${b.error || up.status}` })
+        return
       }
-      router.refresh()
+      console.log('[face] reference photo uploaded for', emp.empId)
+
+      // 2) Compute the face descriptor on-device. Surface every outcome — a
+      // photo with no descriptor means face match can't work for this person.
+      const face = await import('@/lib/face')
+      let descriptor: Float32Array | null = null
+      try {
+        setPhotoMsg({ kind: 'info', text: 'Loading face model (first time downloads ~12MB)…' })
+        await face.loadFaceModels()
+        setPhotoMsg({ kind: 'info', text: 'Detecting face in the photo…' })
+        descriptor = await face.computeDescriptorFromSource(file)
+      } catch (e: any) {
+        console.error('[face] descriptor computation failed', e)
+        setPhotoMsg({ kind: 'err', text: `Photo saved, but the face model failed: ${e?.message || e}. Face match is disabled for ${emp.name} until you retry (a JPG/PNG works best — iPhone HEIC may not decode).` })
+        return
+      }
+      if (!descriptor) {
+        setPhotoMsg({ kind: 'warn', text: `Photo saved, but no face was detected in it. Upload a clear, well-lit, front-facing JPG/PNG — face match is disabled for ${emp.name} until then.` })
+        return
+      }
+
+      // 3) Save the 128-float descriptor.
+      setPhotoMsg({ kind: 'info', text: 'Saving face descriptor…' })
+      const save = await fetch('/api/employees/face-descriptor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ employee_id: emp.id, descriptor: face.descriptorToArray(descriptor) }),
+      })
+      const sb = await save.json().catch(() => ({}))
+      if (!save.ok) {
+        setPhotoMsg({ kind: 'err', text: `Descriptor not saved: ${sb.error || save.status}. (Did migration 0011 run?)` })
+        return
+      }
+      console.log('[face] descriptor saved ✓ for', emp.empId)
+      setPhotoMsg({ kind: 'ok', text: 'Reference photo + face descriptor saved ✓ — face match is ready for this employee.' })
+    } catch (e: any) {
+      setPhotoMsg({ kind: 'err', text: `Unexpected error: ${e?.message || e}` })
     } finally {
       setBusy(false)
+      router.refresh()
     }
   }
 
@@ -428,14 +457,27 @@ export default function EmployeesClient({ initial }: { initial: EmployeeRow[] })
 
                 <div className="ep-drawer-section">
                   <div className="ep-drawer-section-title">Reference photo</div>
-                  <input ref={photoInput} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => uploadPhoto(selectedEmp, e.target.files?.[0] ?? null)} />
+                  <input ref={photoInput} type="file" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }} onChange={(e) => uploadPhoto(selectedEmp, e.target.files?.[0] ?? null)} />
                   {selectedEmp.hasPhoto ? (
-                    <div style={{ background: T.bgSubtle, border: `1px solid ${T.border}`, borderRadius: 10, height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40, marginBottom: 12 }}>🧑</div>
+                    selectedEmp.photoUrl ? (
+                      <img src={selectedEmp.photoUrl} alt={selectedEmp.name} style={{ width: '100%', maxHeight: 260, objectFit: 'cover', borderRadius: 10, marginBottom: 10, border: `1px solid ${T.border}` }} />
+                    ) : (
+                      <div style={{ background: T.bgSubtle, border: `1px solid ${T.border}`, borderRadius: 10, height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, color: T.dim, marginBottom: 10 }}>Photo set, preview unavailable</div>
+                    )
                   ) : (
-                    <div className="ep-photo-box" onClick={() => photoInput.current?.click()}>
+                    <div className="ep-photo-box" onClick={() => !busy && photoInput.current?.click()}>
                       <div className="ep-photo-box-icon">📷</div>
-                      <div className="ep-photo-box-label">{busy ? 'Uploading…' : 'No reference photo — click to upload'}</div>
+                      <div className="ep-photo-box-label">{busy ? 'Working…' : 'No reference photo — click to upload'}</div>
                     </div>
+                  )}
+                  {/* Face-match readiness: a photo without a descriptor can't be matched. */}
+                  {selectedEmp.hasPhoto && (
+                    <div className="ep-face-status" style={{ color: selectedEmp.hasDescriptor ? T.tealBright : T.amber, borderColor: selectedEmp.hasDescriptor ? '#1a4030' : '#5a3d0a' }}>
+                      {selectedEmp.hasDescriptor ? '✓ Face descriptor stored — match ready' : '⚠ No face descriptor — match disabled. Replace with a clear front-facing photo.'}
+                    </div>
+                  )}
+                  {photoMsg && (
+                    <div className={`ep-face-msg ${photoMsg.kind}`}>{photoMsg.text}</div>
                   )}
                 </div>
 
@@ -565,6 +607,12 @@ const css = `
 .ep-photo-box:hover{border-color:${T.tealMid}}
 .ep-photo-box-icon{font-size:32px}
 .ep-photo-box-label{font-size:12px;color:${T.dim}}
+.ep-face-status{font-size:11px;font-weight:600;padding:8px 10px;border-radius:8px;border:1px solid ${T.border};background:${T.bgSubtle};line-height:1.4;margin-bottom:8px}
+.ep-face-msg{font-size:12px;line-height:1.5;padding:9px 12px;border-radius:8px;margin-top:4px}
+.ep-face-msg.info{background:${T.bgSubtle};color:${T.whiteMid};border:1px solid ${T.border}}
+.ep-face-msg.ok{background:${T.greenBg};color:${T.tealBright};border:1px solid #1a4030}
+.ep-face-msg.warn{background:${T.amberBg};color:${T.amber};border:1px solid #5a3d0a}
+.ep-face-msg.err{background:${T.redBg};color:${T.red};border:1px solid #3d1a1a}
 .ep-action-btn{width:100%;padding:11px;border-radius:8px;border:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:8px;transition:opacity .12s}
 .ep-action-btn:hover{opacity:.85}
 .ep-action-btn:disabled{opacity:.5;cursor:not-allowed}

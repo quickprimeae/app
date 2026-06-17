@@ -30,6 +30,8 @@ export type EmployeeRow = {
   hoursThisMonth: number
   earnedThisMonth: number
   hasPhoto: boolean
+  photoUrl: string | null
+  hasDescriptor: boolean
   flagged: boolean
   active: boolean
   pinSet: boolean
@@ -50,7 +52,7 @@ export async function getEmployeesList(tenantId: string): Promise<EmployeeRow[]>
   const [empRes, locRes, evtRes, hoursRes] = await Promise.all([
     supabase
       .from('employees')
-      .select('id, employee_number, first_name, last_name, phone, nationality, location_id, branch, hourly_rate, shift_days, shift_start, shift_end, has_photo, active, pin_set, start_date, supervisor:ops_users(name)')
+      .select('id, employee_number, first_name, last_name, phone, nationality, location_id, branch, hourly_rate, shift_days, shift_start, shift_end, has_photo, reference_photo_url, face_descriptor, active, pin_set, start_date, supervisor:ops_users(name)')
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false }),
     supabase
@@ -72,6 +74,22 @@ export async function getEmployeesList(tenantId: string): Promise<EmployeeRow[]>
   ])
 
   const employees = (empRes.data ?? []) as any[]
+
+  // The reference-photos bucket is private, so mint short-lived signed URLs so
+  // the drawer can actually render the uploaded image (not a placeholder).
+  const photoPaths = employees
+    .filter((e) => e.has_photo && e.reference_photo_url)
+    .map((e) => e.reference_photo_url as string)
+  const signedByPath = new Map<string, string>()
+  if (photoPaths.length > 0) {
+    const { data: signed } = await supabase.storage
+      .from('reference-photos')
+      .createSignedUrls(photoPaths, 3600)
+    for (const s of signed ?? []) {
+      if (s.signedUrl && s.path) signedByPath.set(s.path, s.signedUrl)
+    }
+  }
+
   const locById = new Map(((locRes.data ?? []) as any[]).map((l) => [l.id, l]))
   const events = (evtRes.data ?? []) as any[]
   const hoursByEmp = new Map(((hoursRes.data ?? []) as any[]).map((h) => [h.employee_id, h]))
@@ -146,6 +164,8 @@ export async function getEmployeesList(tenantId: string): Promise<EmployeeRow[]>
       hoursThisMonth,
       earnedThisMonth: earned,
       hasPhoto: !!e.has_photo,
+      photoUrl: e.reference_photo_url ? signedByPath.get(e.reference_photo_url) ?? null : null,
+      hasDescriptor: !!e.face_descriptor,
       flagged: !!ev?.flagged,
       active: !!e.active,
       pinSet: !!e.pin_set,
