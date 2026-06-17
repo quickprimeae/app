@@ -3,7 +3,8 @@
 // Picker clock-in / clock-out. Mobile-first, PIN auth, server-side geofence.
 // Flow: identify by phone -> home -> (clock in/out) GPS -> PIN -> [selfie] -> done.
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
+import LiveCameraCapture from '@/components/LiveCameraCapture'
 
 const TEAL = '#0F6E56'
 const TEAL_MID = '#1D9E75'
@@ -218,7 +219,6 @@ export default function PickerClockIn() {
   const [pinBusy, setPinBusy] = useState(false)
   const [overlayError, setOverlayError] = useState<string | null>(null)
   const [pendingEventId, setPendingEventId] = useState<string | null>(null)
-  const selfieInput = useRef<HTMLInputElement | null>(null)
   const [selfieBusy, setSelfieBusy] = useState(false)
 
   const isClockedIn = !!clockedInAt && !clockedOut
@@ -341,8 +341,10 @@ export default function PickerClockIn() {
     }
   }
 
-  async function handleSelfieFile(file: File | null) {
-    if (!file || !pendingEventId) {
+  // Live-camera selfie: the captured canvas frame (never a gallery file) is
+  // uploaded to the existing selfie endpoint.
+  async function handleSelfieCapture(blob: Blob) {
+    if (!pendingEventId) {
       setStep(STEPS.SUCCESS)
       return
     }
@@ -350,7 +352,7 @@ export default function PickerClockIn() {
     try {
       const fd = new FormData()
       fd.append('clock_event_id', pendingEventId)
-      fd.append('file', file)
+      fd.append('file', blob, 'selfie.jpg')
       await fetch('/api/clock-in/selfie', { method: 'POST', body: fd })
     } catch {
       // Best-effort: the clock-in is already recorded server-side.
@@ -546,37 +548,14 @@ export default function PickerClockIn() {
             <div className="qp-overlay">
               <div className="qp-step-title" style={{ marginBottom: 8 }}>Quick selfie check</div>
               <div className="qp-step-sub" style={{ marginBottom: 24 }}>
-                A random check to confirm it&apos;s you. Take a clear photo of your face.
+                A live photo confirms it&apos;s you. Look at the camera and tap capture — no photos from your gallery.
               </div>
-              <div className="qp-camera-frame">
-                🤳
-                <div className="qp-camera-corner tl" />
-                <div className="qp-camera-corner tr" />
-                <div className="qp-camera-corner bl" />
-                <div className="qp-camera-corner br" />
-              </div>
-              <input
-                ref={selfieInput}
-                type="file"
-                accept="image/*"
-                capture="user"
-                style={{ display: 'none' }}
-                onChange={(e) => handleSelfieFile(e.target.files?.[0] ?? null)}
+              <LiveCameraCapture
+                onCapture={(blob) => handleSelfieCapture(blob)}
+                busy={selfieBusy}
+                captureLabel={selfieBusy ? 'Uploading…' : 'Capture selfie'}
+                height={300}
               />
-              <button
-                className="qp-full-btn"
-                disabled={selfieBusy}
-                onClick={() => selfieInput.current?.click()}
-              >
-                {selfieBusy ? 'Uploading…' : 'Take photo'}
-              </button>
-              <button
-                className="qp-full-btn ghost"
-                disabled={selfieBusy}
-                onClick={() => handleSelfieFile(null)}
-              >
-                Skip for now
-              </button>
             </div>
           )}
 
