@@ -213,6 +213,23 @@ export default function EmployeesClient({ initial }: { initial: EmployeeRow[] })
       fd.append('employee_id', emp.id)
       fd.append('file', file)
       await fetch('/api/employees/photo', { method: 'POST', body: fd })
+      // Compute the face descriptor on-device from the reference photo and store
+      // it (just the numbers). Best-effort: if no face is found or the model
+      // fails to load, the photo is still saved and the descriptor stays null
+      // (punches then auto-flag for review).
+      try {
+        const { computeDescriptorFromSource, descriptorToArray } = await import('@/lib/face')
+        const d = await computeDescriptorFromSource(file)
+        if (d) {
+          await fetch('/api/employees/face-descriptor', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ employee_id: emp.id, descriptor: descriptorToArray(d) }),
+          })
+        }
+      } catch {
+        /* face model unavailable — photo saved without a descriptor */
+      }
       router.refresh()
     } finally {
       setBusy(false)

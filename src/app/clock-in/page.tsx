@@ -220,6 +220,10 @@ export default function PickerClockIn() {
   const [overlayError, setOverlayError] = useState<string | null>(null)
   const [pendingEventId, setPendingEventId] = useState<string | null>(null)
   const [selfieBusy, setSelfieBusy] = useState(false)
+  // Selfie sub-flow: capture -> checking (compute descriptor + match) -> result.
+  const [matchPhase, setMatchPhase] = useState<'capture' | 'checking' | 'result'>('capture')
+  const [matchResult, setMatchResult] = useState<{ verdict: string; distance: number | null; reason?: string } | null>(null)
+  const [capturedUrl, setCapturedUrl] = useState<string | null>(null)
 
   const isClockedIn = !!clockedInAt && !clockedOut
 
@@ -330,6 +334,9 @@ export default function PickerClockIn() {
       // Every punch (in AND out) requires a live selfie before the success screen.
       if (data.selfie_required && data.clock_event_id) {
         setPendingEventId(data.clock_event_id)
+        setMatchPhase('capture')
+        setMatchResult(null)
+        setCapturedUrl(null)
         setStep(STEPS.SELFIE)
       } else {
         setStep(STEPS.SUCCESS)
@@ -343,25 +350,60 @@ export default function PickerClockIn() {
   }
 
   // Live-camera selfie: the captured canvas frame (never a gallery file) is
-  // uploaded to the existing selfie endpoint.
-  async function handleSelfieCapture(blob: Blob) {
+  // uploaded, and its face descriptor is computed ON-DEVICE and matched against
+  // the stored reference. Sub-step 2 shows the result for calibration; it does
+  // NOT yet gate the punch (that reorder is Sub-step 3).
+  async function handleSelfieCapture(blob: Blob, dataUrl: string) {
     if (!pendingEventId) {
       setStep(STEPS.SUCCESS)
       return
     }
+    setCapturedUrl(dataUrl)
+    setMatchPhase('checking')
     setSelfieBusy(true)
+
+    // 1) Upload the captured frame (best-effort).
     try {
       const fd = new FormData()
       fd.append('clock_event_id', pendingEventId)
       fd.append('file', blob, 'selfie.jpg')
       await fetch('/api/clock-in/selfie', { method: 'POST', body: fd })
     } catch {
-      // Best-effort: the clock-in is already recorded server-side.
-    } finally {
-      setSelfieBusy(false)
-      setPendingEventId(null)
-      setStep(STEPS.SUCCESS)
+      /* the punch is already recorded server-side */
     }
+
+    // 2) Compute the live descriptor on-device and match against the reference.
+    let result: { verdict: string; distance: number | null; reason?: string }
+    try {
+      const { computeDescriptorFromSource, descriptorToArray } = await import('@/lib/face')
+      const d = await computeDescriptorFromSource(blob)
+      if (!d) {
+        result = { verdict: 'noface', distance: null }
+      } else {
+        const res = await fetch('/api/clock-in/face-match', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clock_event_id: pendingEventId, descriptor: descriptorToArray(d) }),
+        })
+        result = await res.json()
+      }
+    } catch {
+      result = { verdict: 'error', distance: null }
+    }
+
+    setMatchResult(result)
+    setSelfieBusy(false)
+    setMatchPhase('result')
+  }
+
+  function finishSelfie() {
+    setPendingEventId(null)
+    setStep(STEPS.SUCCESS)
+  }
+  function retakeSelfie() {
+    setMatchResult(null)
+    setCapturedUrl(null)
+    setMatchPhase('capture')
   }
 
   function dismissOverlay() {
@@ -547,16 +589,55 @@ export default function PickerClockIn() {
 
           {step === STEPS.SELFIE && (
             <div className="qp-overlay">
-              <div className="qp-step-title" style={{ marginBottom: 8 }}>Quick selfie check</div>
-              <div className="qp-step-sub" style={{ marginBottom: 24 }}>
-                A live photo confirms it&apos;s you. Look at the camera and tap capture — no photos from your gallery.
-              </div>
-              <LiveCameraCapture
-                onCapture={(blob) => handleSelfieCapture(blob)}
-                busy={selfieBusy}
-                captureLabel={selfieBusy ? 'Uploading…' : 'Capture selfie'}
-                height={300}
-              />
+              {matchPhase === 'capture' && (
+                <>
+                  <div className="qp-step-title" style={{ marginBottom: 8 }}>Quick selfie check</div>
+                  <div className="qp-step-sub" style={{ marginBottom: 24 }}>
+                    A live photo confirms it&apos;s you. Look at the camera and tap capture — no photos from your gallery.
+                  </div>
+                  <LiveCameraCapture
+                    onCapture={(blob, dataUrl) => handleSelfieCapture(blob, dataUrl)}
+                    busy={selfieBusy}
+                    captureLabel="Capture selfie"
+                    height={300}
+                  />
+                </>
+              )}
+
+              {matchPhase === 'checking' && (
+                <>
+                  <div className="qp-spinner" />
+                  <div className="qp-step-title">Checking your face…</div>
+                  <div className="qp-step-sub">Matching on your device. This stays private — your photo isn&apos;t sent anywhere for matching.</div>
+                </>
+              )}
+
+              {matchPhase === 'result' && matchResult && (() => {
+                const v = matchResult.verdict
+                const tone = v === 'pass' ? '#1D9E75' : v === 'block' ? '#A32D2D' : '#854F0B'
+                const label =
+                  v === 'pass' ? '✓ Match'
+                  : v === 'flag' ? '⚠ Borderline — flagged'
+                  : v === 'block' ? '✗ No match'
+                  : v === 'noface' ? 'No face detected'
+                  : matchResult.reason === 'no_reference' ? 'No reference photo on file'
+                  : 'Could not check'
+                return (
+                  <>
+                    {capturedUrl && <img src={capturedUrl} alt="Captured" className="qp-result-photo" />}
+                    <div className="qp-step-title" style={{ color: tone, marginBottom: 6 }}>{label}</div>
+                    <div className="qp-step-sub" style={{ marginBottom: 20 }}>
+                      {matchResult.distance != null
+                        ? <>Distance <strong>{matchResult.distance.toFixed(3)}</strong> (lower = closer match).</>
+                        : <>For calibration — capture a clear, well-lit, front-facing photo.</>}
+                    </div>
+                    <button className="qp-full-btn" onClick={finishSelfie}>Continue</button>
+                    {(v === 'block' || v === 'noface') && (
+                      <button className="qp-full-btn ghost" onClick={retakeSelfie}>Retake</button>
+                    )}
+                  </>
+                )
+              })()}
             </div>
           )}
 
@@ -742,6 +823,10 @@ const css = `
   .qp-camera-corner.bl { bottom: 12px; left: 12px; border-bottom-width: 3px; border-left-width: 3px; border-radius: 0 0 0 4px; }
   .qp-camera-corner.br { bottom: 12px; right: 12px; border-bottom-width: 3px; border-right-width: 3px; border-radius: 0 0 4px 0; }
 
+  .qp-result-photo {
+    width: 160px; height: 160px; border-radius: 18px; object-fit: cover; margin-bottom: 20px;
+    border: 3px solid ${TEAL_MID}; transform: scaleX(-1);
+  }
   .qp-success-icon {
     width: 100px; height: 100px; border-radius: 50%; background: ${TEAL_MID};
     display: flex; align-items: center; justify-content: center; font-size: 48px; margin-bottom: 28px;
