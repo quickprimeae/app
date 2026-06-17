@@ -218,9 +218,11 @@ export default function PickerClockIn() {
   const [pinError, setPinError] = useState<string | null>(null)
   const [pinBusy, setPinBusy] = useState(false)
   const [overlayError, setOverlayError] = useState<string | null>(null)
-  const [pendingEventId, setPendingEventId] = useState<string | null>(null)
   const [selfieBusy, setSelfieBusy] = useState(false)
-  // Selfie sub-flow: capture -> checking (compute descriptor + match) -> result.
+  // Gated punch: verify issues a token; the event is committed only after the
+  // selfie + face match. Selfie sub-flow: capture -> checking -> result.
+  const [punchToken, setPunchToken] = useState<string | null>(null)
+  const [blockCount, setBlockCount] = useState(0)
   const [matchPhase, setMatchPhase] = useState<'capture' | 'checking' | 'result'>('capture')
   const [matchResult, setMatchResult] = useState<{ verdict: string; distance: number | null; reason?: string } | null>(null)
   const [capturedUrl, setCapturedUrl] = useState<string | null>(null)
@@ -286,11 +288,13 @@ export default function PickerClockIn() {
     }
   }
 
+  // Step 1: VERIFY GPS + PIN (no event written). On success we hold a token and
+  // move to the live selfie. PIN/GPS failures stop here, before the camera.
   async function submitPin(pin: string) {
     if (!employee || !location || !coords) return
     setPinBusy(true)
     setPinError(null)
-    const endpoint = action === 'in' ? '/api/clock-in' : '/api/clock-out'
+    const endpoint = action === 'in' ? '/api/clock-in/verify' : '/api/clock-out/verify'
     try {
       const res = await fetch(endpoint, {
         method: 'POST',
@@ -300,10 +304,7 @@ export default function PickerClockIn() {
           location_id: location.id,
           lat: coords.lat,
           lng: coords.lng,
-          gps_accuracy: coords.acc,
           pin,
-          device_fingerprint: getDeviceFingerprint(),
-          user_agent: navigator.userAgent,
         }),
       })
       const data = await res.json()
@@ -317,30 +318,19 @@ export default function PickerClockIn() {
         return
       }
       if (!res.ok) {
-        // geofence / lockout / inactive / duplicate
+        // geofence / lockout / inactive / duplicate / no clock-in
         setOverlayError(data.error || 'Could not complete. Please try again.')
         setStep(STEPS.SUCCESS)
         return
       }
 
-      if (action === 'in') {
-        setClockedInAt(new Date(data.timestamp ?? Date.now()))
-        setClockedOut(false)
-      } else {
-        setHoursWorked(typeof data.hours_worked === 'number' ? data.hours_worked : null)
-        setClockedOut(true)
-      }
-
-      // Every punch (in AND out) requires a live selfie before the success screen.
-      if (data.selfie_required && data.clock_event_id) {
-        setPendingEventId(data.clock_event_id)
-        setMatchPhase('capture')
-        setMatchResult(null)
-        setCapturedUrl(null)
-        setStep(STEPS.SELFIE)
-      } else {
-        setStep(STEPS.SUCCESS)
-      }
+      // Verified — nothing recorded yet. Capture the live selfie, then commit.
+      setPunchToken(data.token)
+      setBlockCount(0)
+      setMatchPhase('capture')
+      setMatchResult(null)
+      setCapturedUrl(null)
+      setStep(STEPS.SELFIE)
     } catch {
       setOverlayError('Network error. Please try again.')
       setStep(STEPS.SUCCESS)
@@ -349,12 +339,12 @@ export default function PickerClockIn() {
     }
   }
 
-  // Live-camera selfie: the captured canvas frame (never a gallery file) is
-  // uploaded, and its face descriptor is computed ON-DEVICE and matched against
-  // the stored reference. Sub-step 2 shows the result for calibration; it does
-  // NOT yet gate the punch (that reorder is Sub-step 3).
+  // Step 2: capture -> compute the live descriptor ON-DEVICE -> COMMIT. The
+  // clock_event is written by the server only if the face verdict is not a
+  // block. A block (or no face) commits nothing — the user retakes.
   async function handleSelfieCapture(blob: Blob, dataUrl: string) {
-    if (!pendingEventId) {
+    if (!punchToken || !employee || !location || !coords) {
+      setOverlayError('Your session expired. Please start again.')
       setStep(STEPS.SUCCESS)
       return
     }
@@ -362,48 +352,90 @@ export default function PickerClockIn() {
     setMatchPhase('checking')
     setSelfieBusy(true)
 
-    // 1) Upload the captured frame (best-effort).
-    try {
-      const fd = new FormData()
-      fd.append('clock_event_id', pendingEventId)
-      fd.append('file', blob, 'selfie.jpg')
-      await fetch('/api/clock-in/selfie', { method: 'POST', body: fd })
-    } catch {
-      /* the punch is already recorded server-side */
-    }
-
-    // 2) Compute the live descriptor on-device and match against the reference.
-    let result: { verdict: string; distance: number | null; reason?: string }
+    // Compute the live descriptor on-device.
+    let descriptor: number[] | null = null
     try {
       const { computeDescriptorFromSource, descriptorToArray } = await import('@/lib/face')
       const d = await computeDescriptorFromSource(blob)
-      if (!d) {
-        result = { verdict: 'noface', distance: null }
-      } else {
-        const res = await fetch('/api/clock-in/face-match', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ clock_event_id: pendingEventId, descriptor: descriptorToArray(d) }),
-        })
-        result = await res.json()
-      }
+      if (d) descriptor = descriptorToArray(d)
     } catch {
-      result = { verdict: 'error', distance: null }
+      /* model failed to load / run */
+    }
+    if (!descriptor) {
+      setMatchResult({ verdict: 'noface', distance: null })
+      setSelfieBusy(false)
+      setMatchPhase('result')
+      return
     }
 
-    setMatchResult(result)
-    setSelfieBusy(false)
-    setMatchPhase('result')
+    // Commit (gated): the server records the punch only if not a block.
+    const endpoint = action === 'in' ? '/api/clock-in' : '/api/clock-out'
+    try {
+      const fd = new FormData()
+      fd.append('employee_id', employee.id)
+      fd.append('location_id', location.id)
+      fd.append('token', punchToken)
+      fd.append('lat', String(coords.lat))
+      fd.append('lng', String(coords.lng))
+      fd.append('gps_accuracy', String(coords.acc))
+      fd.append('descriptor', JSON.stringify(descriptor))
+      fd.append('device_fingerprint', getDeviceFingerprint() ?? '')
+      fd.append('user_agent', navigator.userAgent)
+      fd.append('block_count', String(blockCount))
+      fd.append('file', blob, 'selfie.jpg')
+      const res = await fetch(endpoint, { method: 'POST', body: fd })
+      const data = await res.json()
+
+      if (!res.ok) {
+        // token expired / inactive / geofence-changed — nothing committed.
+        setMatchResult({ verdict: 'error', distance: null, reason: data.error })
+        setSelfieBusy(false)
+        setMatchPhase('result')
+        return
+      }
+      if (data.verdict === 'block') {
+        setBlockCount(typeof data.blockCount === 'number' ? data.blockCount : blockCount + 1)
+        setMatchResult({ verdict: 'block', distance: data.distance })
+        setSelfieBusy(false)
+        setMatchPhase('result')
+        return
+      }
+
+      // Committed (pass / flag / no-reference).
+      if (action === 'in') {
+        setClockedInAt(new Date(data.timestamp ?? Date.now()))
+        setClockedOut(false)
+      } else {
+        setHoursWorked(typeof data.hours_worked === 'number' ? data.hours_worked : null)
+        setClockedOut(true)
+      }
+      setMatchResult({ verdict: data.verdict, distance: data.distance })
+      setSelfieBusy(false)
+      setMatchPhase('result')
+    } catch {
+      setMatchResult({ verdict: 'error', distance: null })
+      setSelfieBusy(false)
+      setMatchPhase('result')
+    }
   }
 
+  // Continue is only reachable after a committed verdict (pass/flag) — go to the
+  // success screen. cancelPunch aborts with nothing recorded.
   function finishSelfie() {
-    setPendingEventId(null)
+    setPunchToken(null)
     setStep(STEPS.SUCCESS)
   }
   function retakeSelfie() {
     setMatchResult(null)
     setCapturedUrl(null)
     setMatchPhase('capture')
+  }
+  function cancelPunch() {
+    setPunchToken(null)
+    setMatchResult(null)
+    setCapturedUrl(null)
+    setMatchPhase('capture')
+    setStep(STEPS.HOME)
   }
 
   function dismissOverlay() {
@@ -591,9 +623,9 @@ export default function PickerClockIn() {
             <div className="qp-overlay">
               {matchPhase === 'capture' && (
                 <>
-                  <div className="qp-step-title" style={{ marginBottom: 8 }}>Quick selfie check</div>
+                  <div className="qp-step-title" style={{ marginBottom: 8 }}>Live selfie required</div>
                   <div className="qp-step-sub" style={{ marginBottom: 24 }}>
-                    A live photo confirms it&apos;s you. Look at the camera and tap capture — no photos from your gallery.
+                    {action === 'in' ? 'Clock-in' : 'Clock-out'} is only recorded after this. Look at the camera and tap capture — no photos from your gallery.
                   </div>
                   <LiveCameraCapture
                     onCapture={(blob, dataUrl) => handleSelfieCapture(blob, dataUrl)}
@@ -601,39 +633,46 @@ export default function PickerClockIn() {
                     captureLabel="Capture selfie"
                     height={300}
                   />
+                  <button className="qp-full-btn ghost" disabled={selfieBusy} onClick={cancelPunch}>Cancel</button>
                 </>
               )}
 
               {matchPhase === 'checking' && (
                 <>
                   <div className="qp-spinner" />
-                  <div className="qp-step-title">Checking your face…</div>
-                  <div className="qp-step-sub">Matching on your device. This stays private — your photo isn&apos;t sent anywhere for matching.</div>
+                  <div className="qp-step-title">Verifying your face…</div>
+                  <div className="qp-step-sub">Matching on your device, then recording the punch. Your photo isn&apos;t sent anywhere for matching.</div>
                 </>
               )}
 
               {matchPhase === 'result' && matchResult && (() => {
                 const v = matchResult.verdict
-                const tone = v === 'pass' ? '#1D9E75' : v === 'block' ? '#A32D2D' : '#854F0B'
+                const committed = v === 'pass' || v === 'flag'
+                const tone = v === 'pass' ? '#1D9E75' : v === 'block' || v === 'error' ? '#A32D2D' : '#854F0B'
                 const label =
-                  v === 'pass' ? '✓ Match'
-                  : v === 'flag' ? '⚠ Borderline — flagged'
-                  : v === 'block' ? '✗ No match'
+                  v === 'pass' ? '✓ Verified'
+                  : v === 'flag' ? '⚠ Recorded — flagged for review'
+                  : v === 'block' ? '✗ Face didn’t match'
                   : v === 'noface' ? 'No face detected'
-                  : matchResult.reason === 'no_reference' ? 'No reference photo on file'
-                  : 'Could not check'
+                  : 'Couldn’t verify'
+                const sub =
+                  v === 'pass' ? <>You&apos;re clocked {action === 'in' ? 'in' : 'out'}. {matchResult.distance != null && <>(distance {matchResult.distance.toFixed(3)})</>}</>
+                  : v === 'flag' ? <>Recorded, but sent for a quick human check. {matchResult.distance != null ? <>(distance {matchResult.distance.toFixed(3)})</> : <>No reference photo on file.</>}</>
+                  : v === 'block' ? <>That didn&apos;t match the photo on file. Try again — face the camera in good light.{blockCount >= 3 && <><br /><strong>Your supervisor has been notified.</strong></>}</>
+                  : v === 'noface' ? <>No face was found in the photo. Move into good light and fill the frame.</>
+                  : <>{matchResult.reason || 'Please try again.'}</>
                 return (
                   <>
                     {capturedUrl && <img src={capturedUrl} alt="Captured" className="qp-result-photo" />}
                     <div className="qp-step-title" style={{ color: tone, marginBottom: 6 }}>{label}</div>
-                    <div className="qp-step-sub" style={{ marginBottom: 20 }}>
-                      {matchResult.distance != null
-                        ? <>Distance <strong>{matchResult.distance.toFixed(3)}</strong> (lower = closer match).</>
-                        : <>For calibration — capture a clear, well-lit, front-facing photo.</>}
-                    </div>
-                    <button className="qp-full-btn" onClick={finishSelfie}>Continue</button>
-                    {(v === 'block' || v === 'noface') && (
-                      <button className="qp-full-btn ghost" onClick={retakeSelfie}>Retake</button>
+                    <div className="qp-step-sub" style={{ marginBottom: 20 }}>{sub}</div>
+                    {committed ? (
+                      <button className="qp-full-btn" onClick={finishSelfie}>Continue</button>
+                    ) : (
+                      <>
+                        <button className="qp-full-btn" onClick={retakeSelfie}>Retake</button>
+                        <button className="qp-full-btn ghost" onClick={cancelPunch}>Cancel</button>
+                      </>
                     )}
                   </>
                 )
