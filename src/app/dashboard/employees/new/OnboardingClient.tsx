@@ -22,7 +22,7 @@ type Sup = { id: string; name: string | null }
 
 const STEPS_META = [
   { label: 'Personal details', desc: 'Name, phone, nationality' },
-  { label: 'Assignment', desc: 'Location & shift' },
+  { label: 'Shift & pay', desc: 'Salary, shift, supervisor' },
   { label: 'Reference photo', desc: 'For identity verification' },
   { label: 'Review & confirm', desc: 'Check before creating' },
 ]
@@ -67,7 +67,7 @@ export default function OnboardingClient({ tenantId, locations, supervisors }: {
 
   function canAdvance() {
     if (step === 0) return data.firstName && data.lastName && phoneValid && data.startDate
-    if (step === 1) return data.locationId && data.monthlySalary && data.shiftType
+    if (step === 1) return data.monthlySalary && data.shiftType
     return true
   }
 
@@ -84,7 +84,7 @@ export default function OnboardingClient({ tenantId, locations, supervisors }: {
           last_name: data.lastName,
           phone: data.phone.trim(),
           nationality: data.nationality || null,
-          location_id: data.locationId || null,
+          location_id: null, // assigned later from the Employees tab
           supervisor_id: data.supervisorId || null,
           monthly_salary: Number(data.monthlySalary),
           shift_type: data.shiftType,
@@ -126,7 +126,6 @@ export default function OnboardingClient({ tenantId, locations, supervisors }: {
   }
 
   const progress = step >= 4 ? 100 : Math.round((step / 4) * 100)
-  const locName = locations.find((l) => l.id === data.locationId)?.name ?? ''
   const fullName = `${data.firstName} ${data.lastName}`.trim()
 
   return (
@@ -182,14 +181,6 @@ export default function OnboardingClient({ tenantId, locations, supervisors }: {
 
                 {step === 1 && (
                   <div className="ob-form">
-                    <div className="ob-row single">
-                      <Field label="Assigned location" required hint="Geofence is set on the location record">
-                        <select className="ob-select" value={data.locationId} onChange={(e) => onChange('locationId', e.target.value)}>
-                          <option value="">Choose a location</option>
-                          {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-                        </select>
-                      </Field>
-                    </div>
                     <div className="ob-row triple">
                       <Field label="Monthly salary (AED)" required><input className="ob-input" type="number" placeholder="2080" value={data.monthlySalary} onChange={(e) => onChange('monthlySalary', e.target.value)} /></Field>
                       <Field label="Shift type" required><select className="ob-select" value={data.shiftType} onChange={(e) => onChange('shiftType', e.target.value)}><option value="8h">8h</option><option value="10h">10h</option></select></Field>
@@ -203,7 +194,7 @@ export default function OnboardingClient({ tenantId, locations, supervisors }: {
                       <Field label="Branch" hint="Optional branch label"><input className="ob-input" placeholder="e.g. MOE" value={data.branch} onChange={(e) => onChange('branch', e.target.value)} /></Field>
                       <div />
                     </div>
-                    <div className="ob-info-box teal"><span className="ob-info-box-icon">🕒</span><div className="ob-info-box-text">Hourly rate = monthly salary ÷ 26 ÷ shift hours (8 or 10), calculated on save. The picker inherits this location&apos;s shift times and GPS geofence.</div></div>
+                    <div className="ob-info-box teal"><span className="ob-info-box-icon">🕒</span><div className="ob-info-box-text">Hourly rate = monthly salary ÷ 26 ÷ shift hours (8 or 10), calculated on save. Assign a location later from the Employees tab — they can&apos;t clock in until they have one.</div></div>
                   </div>
                 )}
 
@@ -231,7 +222,7 @@ export default function OnboardingClient({ tenantId, locations, supervisors }: {
                       <div>
                         <div className="ob-review-name">{fullName || '—'}</div>
                         <div className="ob-badges">
-                          {locName && <span className="ob-badge">📍 {locName.split(' — ')[0]}</span>}
+                          <span className="ob-badge" style={{ background: T.amberLight, color: T.amber, borderColor: '#FAC775' }}>📍 No location yet</span>
                           {data.shiftDays && <span className="ob-badge">📅 {data.shiftDays}</span>}
                           {data.shiftType && <span className="ob-badge">🕒 {data.shiftType}</span>}
                           {data.monthlySalary && <span className="ob-badge">💰 AED {data.monthlySalary}/mo</span>}
@@ -241,7 +232,7 @@ export default function OnboardingClient({ tenantId, locations, supervisors }: {
                     <table className="ob-review-table"><tbody>
                       {[
                         ['Mobile', data.phone || '—'], ['Nationality', data.nationality || '—'], ['Start date', data.startDate || '—'],
-                        ['Location', locName || '—'], ['Shift days', data.shiftDays || '—'],
+                        ['Location', 'Assign from Employees tab'], ['Shift days', data.shiftDays || '—'],
                         ['Shift type', data.shiftType || '—'],
                         ['Monthly salary', data.monthlySalary ? `AED ${data.monthlySalary}/mo` : '—'],
                         ['Hourly rate', previewHourly(data.monthlySalary, data.shiftType)],
@@ -270,7 +261,7 @@ export default function OnboardingClient({ tenantId, locations, supervisors }: {
                 </div>
                 <div className="ob-success-details">
                   <div className="ob-success-stat"><div className="ob-success-stat-val">{result?.employee_number || 'QP-AUTO'}</div><div className="ob-success-stat-label">Employee ID</div></div>
-                  <div className="ob-success-stat"><div className="ob-success-stat-val">{locName.split(' — ')[0] || '—'}</div><div className="ob-success-stat-label">Location</div></div>
+                  <div className="ob-success-stat"><div className="ob-success-stat-val" style={{ color: T.amber, fontSize: 15 }}>Assign next</div><div className="ob-success-stat-label">Location</div></div>
                   <div className="ob-success-stat"><div className="ob-success-stat-val">AED {data.monthlySalary || '—'}</div><div className="ob-success-stat-label">Monthly salary · {data.shiftType}</div></div>
                 </div>
                 <div style={{ display: 'flex', gap: 12 }}>

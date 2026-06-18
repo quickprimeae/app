@@ -52,7 +52,7 @@ type StatusFilter =
   | 'flagged'
   | 'nophoto'
 
-export default function EmployeesClient({ initial }: { initial: EmployeeRow[] }) {
+export default function EmployeesClient({ initial, locations }: { initial: EmployeeRow[]; locations: { id: string; name: string }[] }) {
   const router = useRouter()
   const ALL = initial
   const [search, setSearch] = useState('')
@@ -154,6 +154,20 @@ export default function EmployeesClient({ initial }: { initial: EmployeeRow[] })
         body: JSON.stringify({ employee_id: emp.id, active: false }),
       })
       setSelected(null)
+      router.refresh()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function assignLocation(emp: EmployeeRow, locationId: string) {
+    setBusy(true)
+    try {
+      await fetch('/api/employees/location', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ employee_id: emp.id, location_id: locationId || null }),
+      })
       router.refresh()
     } finally {
       setBusy(false)
@@ -355,7 +369,18 @@ export default function EmployeesClient({ initial }: { initial: EmployeeRow[] })
                           {emp.flagged ? '⚠ flagged' : STATUS_META[emp.status].short}
                         </span>
                       </td>
-                      <td><div className="ep-location-text">{emp.location}</div></td>
+                      <td onClick={(e) => e.stopPropagation()}>
+                        <select
+                          className={`ep-loc-select ${emp.locationId ? '' : 'unassigned'}`}
+                          value={emp.locationId ?? ''}
+                          disabled={busy}
+                          onChange={(ev) => assignLocation(emp, ev.target.value)}
+                          title={emp.locationId ? 'Change location' : 'Assign location'}
+                        >
+                          <option value="">{emp.locationId ? '— Unassign —' : 'Unassigned — assign…'}</option>
+                          {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+                        </select>
+                      </td>
                       <td><span style={{ fontSize: 12, color: T.whiteMid }}>{emp.branch ?? '—'}</span></td>
                       <td><span style={{ fontSize: 12, color: T.whiteMid }}>{emp.client ?? '—'}</span></td>
                       <td><span className="ep-mono">{fmt(emp.clockedInAt)}</span></td>
@@ -573,6 +598,11 @@ const css = `
 .ep-badge.nophoto{background:${T.bgSubtle};color:${T.dim};border:1px solid ${T.border}}
 .ep-mono{font-family:'DM Mono',monospace;font-size:12px;color:${T.dim}}
 .ep-location-text{font-size:12px;color:${T.whiteMid};max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ep-loc-select{max-width:170px;font-family:'DM Sans',sans-serif;font-size:12px;color:${T.whiteMid};background:${T.bgSubtle};border:1px solid ${T.border};border-radius:7px;padding:6px 8px;cursor:pointer;outline:none}
+.ep-loc-select:hover{border-color:${T.teal}}
+.ep-loc-select:focus{border-color:${T.tealMid}}
+.ep-loc-select:disabled{opacity:.5;cursor:not-allowed}
+.ep-loc-select.unassigned{color:${T.amber};border-color:#5a3d0a;background:${T.amberBg};font-weight:600}
 .ep-pagination{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-top:1px solid ${T.border};font-size:12px;color:${T.dim}}
 .ep-page-btns{display:flex;gap:4px}
 .ep-page-btn{width:28px;height:28px;border-radius:6px;border:1px solid ${T.border};background:none;color:${T.dim};font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s}

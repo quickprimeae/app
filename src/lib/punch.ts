@@ -94,6 +94,11 @@ export async function preCheck(
   if (empErr || !employee) return { ok: false, status: 404, body: { error: 'Employee not found' } }
   if (locErr || !location) return { ok: false, status: 404, body: { error: 'Location not found' } }
   if (!employee.active) return { ok: false, status: 403, body: { error: 'Account inactive' } }
+  // A picker with no assigned location has no geofence to check — never let a
+  // null-location punch through (the punch is reordered, but this is the gate).
+  if (!employee.location_id) {
+    return { ok: false, status: 403, body: { error: 'No location assigned — ask your admin.' } }
+  }
   if (!employee.pin_set || !employee.pin_hash) {
     return { ok: false, status: 403, body: { error: 'PIN not set up. Check your WhatsApp for setup link.' } }
   }
