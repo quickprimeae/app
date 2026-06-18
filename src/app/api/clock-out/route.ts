@@ -19,6 +19,15 @@ const SELFIE_BUCKET = 'selfies'
 export async function POST(req: NextRequest) {
   const supabase = createServerSupabaseClient()
   try {
+    // Gated COMMIT — multipart only (live selfie). A JSON body means a stale
+    // client calling the pre-gating contract; return a clear 400, not a 500.
+    const contentType = req.headers.get('content-type') || ''
+    if (!contentType.includes('multipart/form-data')) {
+      return NextResponse.json(
+        { error: 'This step needs the live selfie. Fully reload the app (you may be on an old version) and clock out again.' },
+        { status: 400 }
+      )
+    }
     const form = await req.formData()
     const get = (k: string) => form.get(k)
     const employee_id = String(get('employee_id') ?? '')

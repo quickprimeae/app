@@ -20,6 +20,16 @@ const SELFIE_BUCKET = 'selfies'
 export async function POST(req: NextRequest) {
   const supabase = createServerSupabaseClient()
   try {
+    // This is the gated COMMIT: it only accepts the multipart form produced by
+    // the live-selfie capture. A JSON body here means a stale client bundle is
+    // calling the pre-gating contract — return a clear 400, never a raw 500.
+    const contentType = req.headers.get('content-type') || ''
+    if (!contentType.includes('multipart/form-data')) {
+      return NextResponse.json(
+        { error: 'This step needs the live selfie. Fully reload the app (you may be on an old version) and clock in again.' },
+        { status: 400 }
+      )
+    }
     const form = await req.formData()
     const get = (k: string) => form.get(k)
     const employee_id = String(get('employee_id') ?? '')
