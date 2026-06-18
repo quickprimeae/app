@@ -213,11 +213,11 @@ export default function DashboardClient({
               <div className="db-kpi-val amber">{kpis.late}</div>
               <div className="db-kpi-sub">locations missing ≥1 picker</div>
             </div>
-            <div className="db-kpi warn">
+            <Link href="/dashboard/alerts?tab=faceflag" className="db-kpi warn" style={{ textDecoration: 'none', display: 'block' }}>
               <div className="db-kpi-label">Face match flags</div>
               <div className="db-kpi-val amber">{kpis.flagged}</div>
-              <div className="db-kpi-sub">pending manual review</div>
-            </div>
+              <div className="db-kpi-sub">pending review — click to triage</div>
+            </Link>
           </div>
 
           {alerts.length > 0 && (

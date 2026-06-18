@@ -4,7 +4,7 @@
 // resolution note and resolve (PATCH /api/alerts). relTime computes "now" on
 // each call (bug #2 fix — no stale module-level Date).
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
 const T = {
@@ -25,12 +25,21 @@ export type AlertItem = {
   locationName: string
   employeeName: string
   empId: string
+  employeeId: string | null
   client: string
   createdAt: string
   resolved: boolean
   resolvedAt: string | null
   resolvedByName: string | null
   resolutionNote: string
+  // Face-flag review fields
+  clockEventId: string | null
+  distance: number | null
+  selfieUrl: string | null
+  referenceUrl: string | null
+  reviewResult: 'approved' | 'rejected' | null
+  reviewedAt: string | null
+  reviewedByName: string | null
 }
 
 const TYPE_META: Record<string, { icon: string; color: string; bg: string; border: string }> = {
@@ -59,14 +68,32 @@ function fmtDate(iso: string) {
 
 type TypeFilter = 'all' | 'noshow' | 'late' | 'faceflag' | 'clockout'
 
-export default function AlertsClient({ initial }: { initial: AlertItem[] }) {
+export default function AlertsClient({ initial, focusFlag, startFaceflag }: { initial: AlertItem[]; focusFlag?: string | null; startFaceflag?: boolean }) {
   const router = useRouter()
   const alerts = initial
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>(focusFlag || startFaceflag ? 'faceflag' : 'all')
   const [showResolved, setShowResolved] = useState(false)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [notes, setNotes] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
+
+  // Open face-flags pending review = the ONLY thing the pending count includes.
+  const pendingFace = useMemo(() => alerts.filter((a) => a.type === 'faceflag' && !a.resolved && a.reviewResult === null), [alerts])
+  const rejectedFace = useMemo(() => alerts.filter((a) => a.type === 'faceflag' && !a.resolved && a.reviewResult === 'rejected'), [alerts])
+
+  async function review(alertId: string, action: 'approve' | 'reject', note?: string) {
+    setBusy(true)
+    try {
+      await fetch('/api/alerts/review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ alert_id: alertId, action, note: note || null }),
+      })
+      router.refresh()
+    } finally {
+      setBusy(false)
+    }
+  }
 
   const filtered = useMemo(() => {
     let d = alerts
@@ -97,6 +124,9 @@ export default function AlertsClient({ initial }: { initial: AlertItem[] }) {
 
   const typeCounts: Record<string, number> = {}
   unresolved.forEach((a) => { typeCounts[a.type] = (typeCounts[a.type] || 0) + 1 })
+  // Face-flag count is PENDING-only — a rejected/escalated flag is reviewed and
+  // must not keep the pending number from going down.
+  typeCounts.faceflag = pendingFace.length
 
   const visibleCritical = filtered.filter((a) => a.severity === 'critical' && !a.resolved)
   const visibleWarnings = filtered.filter((a) => a.severity === 'warning' && !a.resolved)
@@ -160,6 +190,10 @@ export default function AlertsClient({ initial }: { initial: AlertItem[] }) {
               <div className="al-stat"><div className="al-stat-val" style={{ color: T.white }}>{alerts.length}</div><div className="al-stat-label">Total fired</div></div>
             </div>
 
+            {typeFilter === 'faceflag' ? (
+              <FaceFlagQueue pending={pendingFace} rejected={rejectedFace} focusFlag={focusFlag ?? null} busy={busy} onReview={review} />
+            ) : (
+            <>
             {visibleCritical.length > 0 && (
               <>
                 <div className="al-section-title">🚨 Critical <span>— requires immediate action</span></div>
@@ -193,6 +227,8 @@ export default function AlertsClient({ initial }: { initial: AlertItem[] }) {
                 <div style={{ fontSize: 16, fontWeight: 600, color: T.whiteMid, marginBottom: 6 }}>All clear</div>
                 <div style={{ fontSize: 13 }}>No open alerts. You&apos;re on top of it.</div>
               </div>
+            )}
+            </>
             )}
           </main>
         </div>
@@ -251,8 +287,104 @@ function AlertCard({ alert, isExpanded, busy, onToggle, onResolve, note, onNoteC
   )
 }
 
+function distanceTone(d: number | null) {
+  if (d == null) return { label: '—', color: T.amber }
+  if (d <= 0.5) return { label: d.toFixed(3), color: T.green }
+  if (d <= 0.6) return { label: d.toFixed(3), color: T.amber }
+  return { label: d.toFixed(3), color: T.red }
+}
+
+function FaceFlagQueue({ pending, rejected, focusFlag, busy, onReview }: {
+  pending: AlertItem[]
+  rejected: AlertItem[]
+  focusFlag: string | null
+  busy: boolean
+  onReview: (id: string, action: 'approve' | 'reject', note?: string) => void
+}) {
+  return (
+    <>
+      <div className="al-section-title">🔍 Pending review <span>— {pending.length} face flag{pending.length === 1 ? '' : 's'} awaiting a decision</span></div>
+      {pending.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '48px 0', color: T.dim }}>
+          <div style={{ fontSize: 30, marginBottom: 10 }}>✅</div>
+          <div style={{ fontSize: 14, color: T.whiteMid }}>No face flags pending review.</div>
+        </div>
+      )}
+      {pending.map((a) => <FlagCard key={a.id} a={a} focus={a.id === focusFlag} busy={busy} onReview={onReview} />)}
+
+      {rejected.length > 0 && (
+        <>
+          <div className="al-section-title" style={{ marginTop: 28 }}>⛔ Rejected / escalated <span>— reviewed, not the right person — still open</span></div>
+          {rejected.map((a) => <FlagCard key={a.id} a={a} focus={a.id === focusFlag} busy={busy} onReview={onReview} rejected />)}
+        </>
+      )}
+    </>
+  )
+}
+
+function FlagCard({ a, focus, busy, onReview, rejected }: {
+  a: AlertItem
+  focus: boolean
+  busy: boolean
+  onReview: (id: string, action: 'approve' | 'reject', note?: string) => void
+  rejected?: boolean
+}) {
+  const ref = useRef<HTMLDivElement | null>(null)
+  useEffect(() => { if (focus && ref.current) ref.current.scrollIntoView({ behavior: 'smooth', block: 'center' }) }, [focus])
+  const tone = distanceTone(a.distance)
+  const isLockout = !a.clockEventId // 3-block repeated-mismatch alert: no captured frame
+  return (
+    <div ref={ref} className={`ff-card ${focus ? 'focus' : ''} ${rejected ? 'rejected' : ''}`}>
+      <div className="ff-head">
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="ff-name">{a.employeeName}{a.empId && <span className="ff-empid">{a.empId}</span>}</div>
+          <div className="ff-meta">📍 {a.locationName.split(' — ')[0]} · {fmtDate(a.createdAt)} {fmtTime(a.createdAt)} · {relTime(a.createdAt)}</div>
+        </div>
+        {!isLockout && <div className="ff-dist" style={{ color: tone.color, borderColor: tone.color }}>dist {tone.label}</div>}
+        {rejected && <div className="ff-rej-badge">⛔ Rejected{a.reviewedByName ? ` · ${a.reviewedByName}` : ''}</div>}
+      </div>
+
+      {isLockout ? (
+        <div className="ff-lockout">🔒 Repeated-mismatch lockout — no captured frame. This picker failed the face check 3× and could not punch. If they are legitimate (e.g. a bad reference photo), re-upload their reference photo from the employee drawer, then they can retry.</div>
+      ) : (
+        <div className="ff-compare">
+          <figure className="ff-photo"><figcaption className="ff-photo-cap">Captured</figcaption>{a.selfieUrl ? <img src={a.selfieUrl} alt="Captured selfie" /> : <div className="ff-photo-missing">frame unavailable</div>}</figure>
+          <figure className="ff-photo"><figcaption className="ff-photo-cap">Reference</figcaption>{a.referenceUrl ? <img src={a.referenceUrl} alt="Reference photo" /> : <div className="ff-photo-missing">no reference photo</div>}</figure>
+        </div>
+      )}
+      <div className="ff-cardbody">{a.body}</div>
+
+      <div className="ff-actions">
+        <button className="ff-btn approve" disabled={busy} onClick={() => onReview(a.id, 'approve')}>✓ Approve — it is them</button>
+        {!rejected && <button className="ff-btn reject" disabled={busy} onClick={() => onReview(a.id, 'reject')}>✗ Reject — not them</button>}
+      </div>
+    </div>
+  )
+}
+
 const css = `
 *,*::before,*::after{box-sizing:border-box}
+.ff-card{background:${T.bgCard};border:1px solid ${T.border};border-radius:12px;padding:16px 18px;margin-bottom:12px;animation:fadeIn .25s ease both}
+.ff-card.focus{border-color:${T.tealMid};box-shadow:0 0 0 2px rgba(37,208,154,.25)}
+.ff-card.rejected{opacity:.85;border-color:#3d1a1a}
+.ff-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:14px}
+.ff-name{font-size:15px;font-weight:600;color:${T.white};display:flex;align-items:center;gap:8px}
+.ff-empid{font-family:'DM Mono',monospace;font-size:11px;color:${T.dim};font-weight:400}
+.ff-meta{font-size:11px;color:${T.dim};margin-top:3px}
+.ff-dist{font-family:'DM Mono',monospace;font-size:12px;font-weight:600;padding:4px 9px;border-radius:8px;border:1px solid;white-space:nowrap}
+.ff-rej-badge{font-size:10px;font-weight:700;color:${T.red};background:${T.redBg};border:1px solid #3d1a1a;padding:4px 8px;border-radius:8px;white-space:nowrap}
+.ff-compare{display:flex;gap:12px;margin-bottom:12px}
+.ff-photo{flex:1;margin:0;display:flex;flex-direction:column;gap:6px}
+.ff-photo-cap{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:${T.dimMid}}
+.ff-photo img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;border:1px solid ${T.border};background:${T.bgSubtle}}
+.ff-photo-missing{width:100%;aspect-ratio:1;border-radius:10px;border:1px dashed ${T.borderMid};background:${T.bgSubtle};display:flex;align-items:center;justify-content:center;font-size:12px;color:${T.dim}}
+.ff-lockout{font-size:12px;color:${T.amber};background:${T.amberBg};border:1px solid #5a3d0a;border-radius:10px;padding:12px 14px;line-height:1.6;margin-bottom:12px}
+.ff-cardbody{font-size:12px;color:${T.dim};line-height:1.5;margin-bottom:14px}
+.ff-actions{display:flex;gap:10px}
+.ff-btn{flex:1;padding:11px;border-radius:9px;border:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:opacity .12s}
+.ff-btn:disabled{opacity:.5;cursor:not-allowed}
+.ff-btn.approve{background:${T.greenBg};color:${T.green};border:1px solid #1a4030}
+.ff-btn.reject{background:${T.redBg};color:${T.red};border:1px solid #3d1a1a}
 .al-root{font-family:'DM Sans',sans-serif;background:${T.bg};min-height:100vh;color:${T.white};display:flex;flex-direction:column}
 .al-topbar{background:${T.bgCard};border-bottom:1px solid ${T.border};display:flex;align-items:center;padding:0 28px;height:56px;gap:16px;position:sticky;top:0;z-index:100}
 .al-logo{font-family:'DM Mono',monospace;font-size:13px;color:${T.tealBright};letter-spacing:.06em;text-decoration:none}

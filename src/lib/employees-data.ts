@@ -33,6 +33,7 @@ export type EmployeeRow = {
   photoUrl: string | null
   hasDescriptor: boolean
   flagged: boolean
+  flagAlertId: string | null
   active: boolean
   pinSet: boolean
 }
@@ -49,7 +50,7 @@ export async function getEmployeesList(tenantId: string): Promise<EmployeeRow[]>
   const month = new Date().getMonth() + 1
   const year = new Date().getFullYear()
 
-  const [empRes, locRes, evtRes, hoursRes] = await Promise.all([
+  const [empRes, locRes, evtRes, hoursRes, flagRes] = await Promise.all([
     supabase
       .from('employees')
       .select('id, employee_number, first_name, last_name, phone, nationality, location_id, branch, hourly_rate, shift_days, shift_start, shift_end, has_photo, reference_photo_url, face_descriptor, active, pin_set, start_date, supervisor:ops_users(name)')
@@ -71,9 +72,25 @@ export async function getEmployeesList(tenantId: string): Promise<EmployeeRow[]>
       .select('employee_id, total_hours, gross_pay')
       .eq('month', month)
       .eq('year', year),
+    // Single source for "flagged": a PENDING face flag (open + un-reviewed).
+    supabase
+      .from('alerts')
+      .select('id, employee_id, created_at')
+      .eq('tenant_id', tenantId)
+      .eq('type', 'faceflag')
+      .eq('resolved', false)
+      .is('review_result', null)
+      .order('created_at', { ascending: false }),
   ])
 
   const employees = (empRes.data ?? []) as any[]
+
+  // employee_id -> the latest pending face-flag alert id (for the drawer's
+  // "Review →" deep-link). Ordered desc, so the first per employee wins.
+  const flagByEmp = new Map<string, string>()
+  for (const f of (flagRes.data ?? []) as any[]) {
+    if (f.employee_id && !flagByEmp.has(f.employee_id)) flagByEmp.set(f.employee_id, f.id)
+  }
 
   // The reference-photos bucket is private, so mint short-lived signed URLs so
   // the drawer can actually render the uploaded image (not a placeholder).
@@ -166,7 +183,8 @@ export async function getEmployeesList(tenantId: string): Promise<EmployeeRow[]>
       hasPhoto: !!e.has_photo,
       photoUrl: e.reference_photo_url ? signedByPath.get(e.reference_photo_url) ?? null : null,
       hasDescriptor: !!e.face_descriptor,
-      flagged: !!ev?.flagged,
+      flagged: flagByEmp.has(e.id),
+      flagAlertId: flagByEmp.get(e.id) ?? null,
       active: !!e.active,
       pinSet: !!e.pin_set,
     }

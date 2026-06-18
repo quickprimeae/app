@@ -98,11 +98,11 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
       .lte('timestamp', `${today}T23:59:59Z`),
     supabase
       .from('alerts')
-      .select('id, type, severity, title, body, created_at')
+      .select('id, type, severity, title, body, created_at, employee_id, review_result')
       .eq('tenant_id', tenantId)
       .eq('resolved', false)
       .order('created_at', { ascending: false })
-      .limit(25),
+      .limit(100),
   ])
 
   // Cast embedded relations to any: without generated DB types, supabase-js
@@ -111,6 +111,12 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
   const employees = (empRes.data ?? []) as any[]
   const events = (evtRes.data ?? []) as { employee_id: string; timestamp: string; face_match_flagged: boolean | null }[]
   const alertRows = (alertRes.data ?? []) as any[]
+
+  // Face-flag is sourced from the alerts table (single source). "Flagged" =
+  // a PENDING face flag (open + un-reviewed); a rejected/escalated flag does
+  // not count toward the pending KPI.
+  const pendingFace = alertRows.filter((a) => a.type === 'faceflag' && a.review_result == null)
+  const flaggedEmpIds = new Set<string>(pendingFace.map((a) => a.employee_id).filter(Boolean))
 
   // employee_id -> earliest clock-in today
   const byEmployee = new Map<string, { timestamp: string; flagged: boolean }>()
@@ -168,7 +174,7 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
         name: shortName(e.first_name, e.last_name),
         status: pstatus,
         clockedInAt: ev?.timestamp ?? null,
-        flagged: !!ev?.flagged,
+        flagged: flaggedEmpIds.has(e.id),
       }
     })
 
@@ -215,10 +221,8 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
     totalPickers: dashLocations.reduce((s, l) => s + l.total, 0),
     noshow: dashLocations.filter((l) => l.status === 'noshow').length,
     late: dashLocations.filter((l) => l.status === 'late').length,
-    flagged: dashLocations.reduce(
-      (s, l) => s + l.pickers.filter((p) => p.flagged).length,
-      0
-    ),
+    // Pending face flags tenant-wide (single source: the alerts table).
+    flagged: pendingFace.length,
   }
 
   return { locations: dashLocations, alerts, kpis }

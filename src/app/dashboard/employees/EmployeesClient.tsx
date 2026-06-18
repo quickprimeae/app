@@ -476,7 +476,11 @@ export default function EmployeesClient({ initial, locations }: { initial: Emplo
                     <div className="ep-activity-row"><div className="ep-activity-dot" style={{ background: T.red }} /><div className="ep-activity-label" style={{ color: T.red }}>No clock-in recorded</div><div className="ep-activity-time">{selectedEmp.shiftHours}</div></div>
                   )}
                   {selectedEmp.flagged && (
-                    <div className="ep-activity-row" style={{ borderColor: '#5a3d0a' }}><div className="ep-activity-dot" style={{ background: T.amber }} /><div className="ep-activity-label" style={{ color: T.amber }}>Face match flagged — manual review needed</div></div>
+                    <div className="ep-activity-row" style={{ borderColor: '#5a3d0a' }}>
+                      <div className="ep-activity-dot" style={{ background: T.amber }} />
+                      <div className="ep-activity-label" style={{ color: T.amber }}>Face match flagged — manual review needed</div>
+                      <Link href={`/dashboard/alerts?flag=${selectedEmp.flagAlertId ?? ''}`} className="ep-review-link">Review →</Link>
+                    </div>
                   )}
                 </div>
 
@@ -633,6 +637,8 @@ const css = `
 .ep-activity-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .ep-activity-label{color:${T.whiteMid};flex:1}
 .ep-activity-time{font-family:'DM Mono',monospace;color:${T.dim};font-size:11px}
+.ep-review-link{font-size:11px;font-weight:700;color:${T.amber};text-decoration:none;border:1px solid #5a3d0a;border-radius:6px;padding:4px 8px;white-space:nowrap}
+.ep-review-link:hover{background:${T.amberBg}}
 .ep-photo-box{width:100%;height:140px;border-radius:10px;background:${T.bgSubtle};border:2px dashed ${T.border};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;margin-bottom:12px;cursor:pointer;transition:border-color .15s}
 .ep-photo-box:hover{border-color:${T.tealMid}}
 .ep-photo-box-icon{font-size:32px}
