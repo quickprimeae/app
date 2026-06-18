@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
           tenant_id: employee.tenant_id, type: 'faceflag', severity: 'warning',
           title: `Repeated face mismatch — ${employee.first_name} ${employee.last_name}`,
           body: `${blockCount} failed face checks at ${location.name} during clock-in. Possible buddy-punch, or a bad reference photo — review.`,
-          employee_id, location_id,
+          employee_id, location_id, resolved: false,
         }).then(() => {}, () => {})
       }
       return NextResponse.json({ verdict: 'block', distance: gate.distance, blockCount, thresholds: faceThresholds() })
@@ -132,7 +132,7 @@ export async function POST(req: NextRequest) {
         body: gate.reason === 'no_reference'
           ? `Clock-in with no reference photo on file — verify manually.`
           : `Borderline face match on clock-in (distance ${gate.distance?.toFixed(3)}). Verify the selfie.`,
-        employee_id, location_id, clock_event_id: clockEvent.id,
+        employee_id, location_id, clock_event_id: clockEvent.id, resolved: false,
       }).then(() => {}, () => {})
     }
 
