@@ -25,7 +25,7 @@ const COLUMNS = [
   { key: 'monthly_salary', required: true, desc: 'Number (AED/month)' },
   { key: 'shift_days', required: false, desc: 'e.g. Mon-Fri' },
   { key: 'joining_date', required: true, desc: 'YYYY-MM-DD or DD/MM/YYYY' },
-  { key: 'location', required: true, desc: 'Exact DB location name' },
+  { key: 'location', required: false, desc: 'Optional — exact DB location name' },
   { key: 'supervisor', required: false, desc: 'Supervisor name' },
   { key: 'vendor', required: false, desc: 'Talabat or Deliveroo' },
   { key: 'branch', required: false, desc: 'Branch label (reference)' },
@@ -72,8 +72,7 @@ function validateRow(row: Record<string, string>): string[] {
   if (!jd) errors.push('Missing joining_date')
   else if (!validDate(jd)) errors.push('joining_date must be YYYY-MM-DD or DD/MM/YYYY')
 
-  if (!clean(row.location)) errors.push('Missing location')
-
+  // Location is optional — left blank, the employee is created unassigned.
   const vendor = clean(row.vendor).toLowerCase()
   if (vendor && vendor !== 'talabat' && vendor !== 'deliveroo') errors.push('vendor must be Talabat or Deliveroo')
   return errors
@@ -169,7 +168,7 @@ export default function BulkClient() {
                 <div key={c.key} className="bu-col-item"><span className="bu-col-key">{c.key}</span>{c.required && <span className="bu-col-req">req</span>}<span className="bu-col-desc">{c.desc}</span></div>
               ))}
             </div>
-            <div className="bu-sidebar-footer">Max 500 rows per file. Location must match an existing location name exactly.</div>
+            <div className="bu-sidebar-footer">Max 500 rows per file. Location is optional — if given it must match an existing location name exactly; blank rows are created unassigned.</div>
           </aside>
 
           <main className="bu-main">

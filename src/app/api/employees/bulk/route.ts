@@ -118,14 +118,18 @@ export async function POST(req: NextRequest) {
       const hourly_rate = hourlyRateFromSalary(monthlyRaw as any, shiftType)
       if (hourly_rate == null) { err('monthly_salary must be a positive number', phone); continue }
 
+      // Location is OPTIONAL. If given it must match a real location; if blank
+      // the employee is created unassigned (assign later from the Employees tab).
       const locName = clean(r.location)
-      if (!locName) { err('Missing location', phone); continue }
-      const loc = locByName.get(locName.toLowerCase())
-      if (!loc) { err(`Unknown location: ${locName}`, phone); continue }
+      let loc: { id: string; client: string } | undefined
+      if (locName) {
+        loc = locByName.get(locName.toLowerCase())
+        if (!loc) { err(`Unknown location: ${locName}`, phone); continue }
+      }
 
       // vendor maps to the client; if given it must match the location's client (case-insensitive).
       const vendor = clean(r.vendor).toLowerCase()
-      if (vendor && loc.client && vendor !== loc.client) {
+      if (vendor && loc && loc.client && vendor !== loc.client) {
         err(`Vendor "${clean(r.vendor)}" doesn't match location's client "${loc.client}"`, phone)
         continue
       }
@@ -149,7 +153,7 @@ export async function POST(req: NextRequest) {
           phone,
           nationality: clean(r.nationality) || null,
           role: 'picker',
-          location_id: loc.id,
+          location_id: loc ? loc.id : null,
           supervisor_id,
           hourly_rate,
           monthly_salary: Number(monthlyRaw),
