@@ -26,6 +26,7 @@ export async function GET(req: NextRequest) {
       location:locations(id, name)
     `)
     .eq('tenant_id', ctx.opsUser.tenant_id)
+    .eq('voided', false)
     .order('date', { ascending: false })
 
   if (month && year) {

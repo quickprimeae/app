@@ -94,6 +94,7 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
       .select('employee_id, timestamp, face_match_flagged')
       .eq('tenant_id', tenantId)
       .eq('event_type', 'clock_in')
+      .eq('voided', false)
       .gte('timestamp', `${today}T00:00:00Z`)
       .lte('timestamp', `${today}T23:59:59Z`),
     supabase

@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
 
     const today = new Date().toISOString().split('T')[0]
     const { data: dup } = await supabase
-      .from('clock_events').select('id').eq('employee_id', employee_id).eq('event_type', 'clock_in')
+      .from('clock_events').select('id').eq('employee_id', employee_id).eq('event_type', 'clock_in').eq('voided', false)
       .gte('timestamp', `${today}T00:00:00Z`).lte('timestamp', `${today}T23:59:59Z`).maybeSingle()
     if (dup) return NextResponse.json({ error: 'Already clocked in today' }, { status: 409 })
 

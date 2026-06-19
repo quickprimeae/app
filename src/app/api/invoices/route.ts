@@ -62,6 +62,7 @@ export async function POST(req: NextRequest) {
         location:locations!inner(id, name, client_id)
       `)
       .eq('tenant_id', tenant_id)
+      .eq('voided', false)
       .eq('status', 'verified')
       .eq('locations.client_id', client_id)
       .gte('date', startDate)

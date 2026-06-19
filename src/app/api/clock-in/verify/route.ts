@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
       .select('id')
       .eq('employee_id', employee_id)
       .eq('event_type', 'clock_in')
+      .eq('voided', false)
       .gte('timestamp', `${today}T00:00:00Z`)
       .lte('timestamp', `${today}T23:59:59Z`)
       .maybeSingle()

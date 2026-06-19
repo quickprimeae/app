@@ -64,6 +64,7 @@ export async function GET(req: NextRequest) {
     .from('clock_events')
     .select('event_type, timestamp')
     .eq('employee_id', employee.id)
+    .eq('voided', false)
     .gte('timestamp', `${today}T00:00:00Z`)
     .lte('timestamp', `${today}T23:59:59Z`)
     .order('timestamp', { ascending: true })

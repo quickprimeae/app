@@ -67,6 +67,32 @@ export async function POST(req: NextRequest) {
         .select('*').single()
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
       after = data
+
+      // Reject VOIDS the punch: the picker is un-clocked and the hours don't
+      // count. The 3-block lockout alert has no clock_event_id — it just
+      // escalates (nothing to void).
+      if (before.clock_event_id) {
+        const { data: ceBefore } = await supabase
+          .from('clock_events')
+          .select('id, employee_id, event_type, voided')
+          .eq('id', before.clock_event_id)
+          .maybeSingle()
+        await supabase.from('clock_events')
+          .update({ voided: true, voided_at: now, voided_by: ctx.opsUser.id, void_reason: 'face review: rejected' })
+          .eq('id', before.clock_event_id).eq('tenant_id', tenantId)
+          .then(() => {}, () => {})
+        // Void any shift the event belongs to (hours not counted).
+        await supabase.from('shifts')
+          .update({ voided: true, voided_at: now, voided_by: ctx.opsUser.id })
+          .eq('tenant_id', tenantId)
+          .or(`clock_in_event_id.eq.${before.clock_event_id},clock_out_event_id.eq.${before.clock_event_id}`)
+          .then(() => {}, () => {})
+        await supabase.from('audit_logs').insert({
+          tenant_id: tenantId, actor_user_id: ctx.opsUser.id,
+          entity_type: 'clock_event', entity_id: before.clock_event_id, action: 'void',
+          before: ceBefore, after: { voided: true, void_reason: 'face review: rejected', by_alert: alert_id },
+        }).then(() => {}, () => {})
+      }
     }
 
     await supabase.from('audit_logs').insert({

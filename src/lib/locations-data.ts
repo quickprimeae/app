@@ -47,6 +47,7 @@ export async function getLocationsList(tenantId: string): Promise<LocationRow[]>
       .select('employee_id')
       .eq('tenant_id', tenantId)
       .eq('event_type', 'clock_in')
+      .eq('voided', false)
       .gte('timestamp', `${today}T00:00:00Z`)
       .lte('timestamp', `${today}T23:59:59Z`),
   ])

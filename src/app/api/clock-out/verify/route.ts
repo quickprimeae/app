@@ -20,12 +20,12 @@ export async function POST(req: NextRequest) {
 
     const today = new Date().toISOString().split('T')[0]
     const { data: clockIn } = await supabase
-      .from('clock_events').select('id').eq('employee_id', employee_id).eq('event_type', 'clock_in')
+      .from('clock_events').select('id').eq('employee_id', employee_id).eq('event_type', 'clock_in').eq('voided', false)
       .gte('timestamp', `${today}T00:00:00Z`).maybeSingle()
     if (!clockIn) return NextResponse.json({ error: 'No clock-in found for today' }, { status: 409 })
 
     const { data: existingOut } = await supabase
-      .from('clock_events').select('id').eq('employee_id', employee_id).eq('event_type', 'clock_out')
+      .from('clock_events').select('id').eq('employee_id', employee_id).eq('event_type', 'clock_out').eq('voided', false)
       .gte('timestamp', `${today}T00:00:00Z`).maybeSingle()
     if (existingOut) return NextResponse.json({ error: 'Already clocked out today' }, { status: 409 })
 
