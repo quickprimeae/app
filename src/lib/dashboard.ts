@@ -76,6 +76,7 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
   const supabase = createServerSupabaseClient()
   const today = new Date().toISOString().split('T')[0]
 
+  const tq = Date.now() // temporary: isolate DB-query time from JS aggregation
   const [locRes, empRes, evtRes, alertRes] = await Promise.all([
     supabase
       .from('locations')
@@ -105,6 +106,8 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
       .order('created_at', { ascending: false })
       .limit(100),
   ])
+
+  console.log(`[dashboard] queries=${Date.now() - tq}ms (loc=${(locRes.data ?? []).length} emp=${(empRes.data ?? []).length} evt=${(evtRes.data ?? []).length} alerts=${(alertRes.data ?? []).length})`)
 
   // Cast embedded relations to any: without generated DB types, supabase-js
   // infers to-one embeds (client, supervisor) as arrays.
