@@ -581,7 +581,7 @@ const css = `
 .ep-table tbody tr.selected{background:${T.tealFaint}}
 .ep-table td{padding:12px 16px;vertical-align:middle}
 .ep-name-cell{display:flex;align-items:center;gap:10px}
-.ep-avatar{width:30px;height:30px;border-radius:50%;background:${T.tealDark};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:${T.tealText};flex-shrink:0}
+.ep-avatar{width:30px;height:30px;border-radius:50%;background:${T.tealDark};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:${T.onTeal};flex-shrink:0}
 .ep-emp-name{font-weight:500;color:${T.white};font-size:13px}
 .ep-emp-id{font-family:'DM Mono',monospace;font-size:10px;color:${T.dim}}
 .ep-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;letter-spacing:.03em;text-transform:uppercase;white-space:nowrap}
@@ -612,7 +612,7 @@ const css = `
 @keyframes slideD{from{transform:translateX(40px);opacity:0}to{transform:none;opacity:1}}
 .ep-drawer-header{padding:22px 24px 18px;border-bottom:1px solid ${T.border}}
 .ep-drawer-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px}
-.ep-drawer-avatar{width:56px;height:56px;border-radius:50%;background:${T.tealDark};display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:600;color:${T.tealText};border:2px solid ${T.tealMid}}
+.ep-drawer-avatar{width:56px;height:56px;border-radius:50%;background:${T.tealDark};display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:600;color:${T.onTeal};border:2px solid ${T.tealMid}}
 .ep-drawer-name{font-family:var(--font-jakarta),sans-serif;font-size:20px;font-weight:600;color:${T.white};margin-bottom:3px}
 .ep-drawer-id{font-family:'DM Mono',monospace;font-size:12px;color:${T.dim}}
 .ep-close{background:none;border:1px solid ${T.border};color:${T.dim};font-size:16px;width:30px;height:30px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s}

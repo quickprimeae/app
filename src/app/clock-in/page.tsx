@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react'
 import LiveCameraCapture from '@/components/LiveCameraCapture'
 import { PICKER } from '@/lib/theme'
 
-const { TEAL, TEAL_MID, TEAL_LIGHT, TEAL_DARK } = PICKER
+const { TEAL, TEAL_MID, TEAL_LIGHT, TEAL_DARK, ON_PANEL } = PICKER
 
 type EmployeeInfo = {
   id: string
@@ -752,7 +752,7 @@ const css = `
   .qp-logo {
     font-family: 'DM Mono', monospace;
     font-size: 15px; font-weight: 500;
-    color: #00857B; letter-spacing: 0.04em;
+    color: ${ON_PANEL}; letter-spacing: 0.04em;
   }
   .qp-greeting { margin-top: 18px; }
   .qp-greeting-sub { font-size: 13px; color: #B6F2EC; font-weight: 400; margin-bottom: 3px; }

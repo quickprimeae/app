@@ -57,6 +57,12 @@ export const T = {
   whiteMid: SLATE_MID,
   dim: MUTED,
   dimMid: FAINT,
+  // Text that sits ON a teal surface. Brand teal (#00CCBC) is light, so text on
+  // it is dark slate; deep-teal panels (#00857B/#00756B headers, sidebars) are
+  // dark, so text on them is white. Avatars/initials use onTeal; wordmarks/
+  // panel titles use onTealPanel.
+  onTeal: SLATE,
+  onTealPanel: WHITE,
 }
 
 // ── LT: already-light onboarding / bulk / import components ──────────────────
@@ -76,6 +82,8 @@ export const LT = {
   amber: AMBER, amberBg: AMBER_BG, amberLight: AMBER_BG, amberBorder: '#FCD34D',
   red: RED, redBg: RED_BG, redLight: RED_BG, redBorder: '#FCA5A5',
   green: GREEN, greenBg: GREEN_BG,
+  onTeal: SLATE,        // dark text on light brand-teal fills
+  onTealPanel: WHITE,   // white text on deep-teal sidebar/header panels
 }
 
 // ── Picker (employee clock-in) page constants ───────────────────────────────
@@ -88,4 +96,5 @@ export const PICKER = {
   TEAL_MID: TEAL,       // #00CCBC — brand fill
   TEAL_LIGHT: TEAL_TINT,
   TEAL_DARK: '#00756B', // deep teal — header bg (white text ~6:1) + big clock
+  ON_PANEL: WHITE,      // white text/wordmark on the deep-teal header panel
 }

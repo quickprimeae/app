@@ -287,7 +287,7 @@ const css = `
 .ob-root{font-family:var(--font-jakarta),sans-serif;background:${T.surface};min-height:100vh;color:${T.ink}}
 .ob-layout{display:grid;grid-template-columns:280px 1fr;min-height:100vh}
 .ob-sidebar{background:${T.tealDark};padding:36px 28px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
-.ob-logo{font-family:'DM Mono',monospace;font-size:13px;color:${T.tealText};letter-spacing:.06em;margin-bottom:40px;text-decoration:none}
+.ob-logo{font-family:'DM Mono',monospace;font-size:13px;color:${T.onTealPanel};letter-spacing:.06em;margin-bottom:40px;text-decoration:none}
 .ob-sidebar-title{font-family:var(--font-jakarta),serif;font-size:22px;font-weight:300;color:#fff;line-height:1.3;margin-bottom:8px}
 .ob-sidebar-sub{font-size:12px;color:${T.tealText};line-height:1.6;margin-bottom:40px}
 .ob-steps{display:flex;flex-direction:column;gap:4px;flex:1}

@@ -283,7 +283,7 @@ const css = `
 .bu-root{font-family:var(--font-jakarta),sans-serif;background:${T.surface};min-height:100vh;color:${T.ink}}
 .bu-layout{display:grid;grid-template-columns:260px 1fr;min-height:100vh}
 .bu-sidebar{background:${T.tealDark};padding:36px 28px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
-.bu-logo{font-family:'DM Mono',monospace;font-size:13px;color:${T.tealText};letter-spacing:.06em;margin-bottom:36px;text-decoration:none}
+.bu-logo{font-family:'DM Mono',monospace;font-size:13px;color:${T.onTealPanel};letter-spacing:.06em;margin-bottom:36px;text-decoration:none}
 .bu-sidebar-title{font-family:var(--font-jakarta),serif;font-size:22px;font-weight:300;color:#fff;line-height:1.3;margin-bottom:8px}
 .bu-sidebar-sub{font-size:12px;color:${T.tealText};line-height:1.6;margin-bottom:32px}
 .bu-mode-btns{display:flex;flex-direction:column;gap:8px;margin-bottom:32px}

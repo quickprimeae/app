@@ -444,7 +444,7 @@ const css = `
 .db-search-icon { font-size: 13px; color: ${T.dim}; }
 .db-search input { background: none; border: none; outline: none; font-family: var(--font-jakarta), sans-serif; font-size: 13px; color: ${T.white}; width: 100%; }
 .db-search input::placeholder { color: ${T.dimMid}; }
-.db-avatar { width: 32px; height: 32px; border-radius: 50%; background: ${T.teal}; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color:#1B2B2B; }
+.db-avatar { width: 32px; height: 32px; border-radius: 50%; background: ${T.teal}; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color:${T.onTeal}; }
 .db-sidebar { background: ${T.bgCard}; border-right: 1px solid ${T.border}; padding: 20px 0; display: flex; flex-direction: column; position: sticky; top: 56px; height: calc(100vh - 56px); overflow-y: auto; }
 .db-nav-section { padding: 0 12px; margin-bottom: 28px; }
 .db-nav-label { font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: ${T.dimMid}; padding: 0 8px; margin-bottom: 6px; }
@@ -540,7 +540,7 @@ const css = `
 .db-detail-section { margin-bottom: 24px; }
 .db-detail-section-title { font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: ${T.dimMid}; margin-bottom: 12px; }
 .db-picker-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; margin-bottom: 6px; background: ${T.bgSubtle}; border: 1px solid ${T.border}; }
-.db-picker-avatar { width: 32px; height: 32px; border-radius: 50%; background: ${T.tealDark}; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: ${T.tealText}; flex-shrink: 0; }
+.db-picker-avatar { width: 32px; height: 32px; border-radius: 50%; background: ${T.tealDark}; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: ${T.onTeal}; flex-shrink: 0; }
 .db-picker-info { flex: 1; }
 .db-picker-name { font-size: 13px; font-weight: 500; color: ${T.white}; }
 .db-picker-id { font-family: 'DM Mono', monospace; font-size: 10px; color: ${T.dim}; }

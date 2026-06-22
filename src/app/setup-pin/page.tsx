@@ -8,7 +8,7 @@ import { useSearchParams } from 'next/navigation'
 
 import { PICKER } from '@/lib/theme'
 
-const { TEAL, TEAL_MID, TEAL_LIGHT, TEAL_DARK } = PICKER
+const { TEAL, TEAL_MID, TEAL_LIGHT, TEAL_DARK, ON_PANEL } = PICKER
 
 type Phase = 'loading' | 'invalid' | 'enter' | 'confirm' | 'saving' | 'done'
 
@@ -212,7 +212,7 @@ const css = `
   .sp-root { font-family: var(--font-jakarta), sans-serif; background: #f0f4f2; min-height: 100vh; display: flex; justify-content: center; -webkit-tap-highlight-color: transparent; user-select: none; }
   .sp-phone { width: 100%; max-width: 390px; min-height: 100vh; background: #fff; display: flex; flex-direction: column; }
   .sp-header { background: ${TEAL_DARK}; padding: 52px 24px 24px; }
-  .sp-logo { font-family: 'DM Mono', monospace; font-size: 15px; font-weight: 500; color: #5DCAA5; letter-spacing: 0.04em; }
+  .sp-logo { font-family: 'DM Mono', monospace; font-size: 15px; font-weight: 500; color: ${ON_PANEL}; letter-spacing: 0.04em; }
   .sp-body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 36px 28px; }
   .sp-icon { width: 80px; height: 80px; border-radius: 50%; background: ${TEAL_LIGHT}; display: flex; align-items: center; justify-content: center; font-size: 36px; margin-bottom: 24px; }
   .sp-title { font-size: 22px; font-weight: 600; color: ${TEAL_DARK}; text-align: center; margin-bottom: 8px; line-height: 1.2; }
