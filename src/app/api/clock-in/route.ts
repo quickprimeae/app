@@ -17,6 +17,8 @@ import { faceThresholds } from '@/lib/face-config'
 
 const SELFIE_BUCKET = 'selfies'
 
+export const preferredRegion = 'bom1' // colocate with ap-south-1 Supabase DB
+
 export async function POST(req: NextRequest) {
   const supabase = createServerSupabaseClient()
   try {

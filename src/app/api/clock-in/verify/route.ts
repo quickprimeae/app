@@ -8,6 +8,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase'
 import { preCheck, newToken } from '@/lib/punch'
 
+export const preferredRegion = 'bom1' // colocate with ap-south-1 Supabase DB
+
 export async function POST(req: NextRequest) {
   const supabase = createServerSupabaseClient()
   try {
