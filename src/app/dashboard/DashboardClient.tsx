@@ -84,8 +84,12 @@ export default function DashboardClient({
     try {
       const res = await fetch('/api/attendance', { cache: 'no-store', signal: controller.signal })
       if (res.ok) setData(await res.json())
-    } catch {
-      /* aborted or network error — keep last good data */
+    } catch (e: any) {
+      // Swallow our own aborts (we cancel the prior fetch on purpose) AND
+      // transient network errors — keep last good data, never log/surface.
+      if (e?.name !== 'AbortError') {
+        /* keep last good data on a real network blip too */
+      }
     } finally {
       // Only the latest request clears the flag (an aborted one must not).
       if (inFlight.current === controller) {

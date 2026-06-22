@@ -13,6 +13,11 @@ export const viewport: Viewport = {
   maximumScale: 1,
 }
 
+// Colocate functions with the ap-south-1 (Mumbai) Supabase DB. bom1 = Vercel
+// Mumbai; default was iad1 (US East), so every DB/auth call was crossing
+// DC↔Mumbai. Cascades to nested route segments.
+export const preferredRegion = 'bom1'
+
 export default function RootLayout({
   children,
 }: {
