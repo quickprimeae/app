@@ -50,7 +50,6 @@ export default function EmployeesClient({ initial, locations }: { initial: Emplo
   const ALL = initial
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
-  const [clientFilter, setClientFilter] = useState('all')
   const [selected, setSelected] = useState<string | null>(null)
   const [page, setPage] = useState(1)
   const [sort, setSort] = useState<{ key: SortKey; dir: number }>({ key: 'name', dir: 1 })
@@ -76,7 +75,6 @@ export default function EmployeesClient({ initial, locations }: { initial: Emplo
       else if (statusFilter === 'nophoto') d = d.filter((e) => !e.hasPhoto)
       else d = d.filter((e) => e.status === statusFilter)
     }
-    if (clientFilter !== 'all') d = d.filter((e) => e.client === clientFilter)
     if (search) {
       const q = search.toLowerCase()
       d = d.filter(
@@ -92,7 +90,7 @@ export default function EmployeesClient({ initial, locations }: { initial: Emplo
       const bv = b[sort.key] ?? ''
       return av < bv ? -sort.dir : av > bv ? sort.dir : 0
     })
-  }, [ALL, search, statusFilter, clientFilter, sort])
+  }, [ALL, search, statusFilter, sort])
 
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const pageRows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
@@ -107,7 +105,6 @@ export default function EmployeesClient({ initial, locations }: { initial: Emplo
   }
   // Reset page + clear the open drawer whenever a filter changes (bugs #5, #6).
   function setStatus(f: StatusFilter) { setStatusFilter(f); setPage(1); setSelected(null) }
-  function setClient(c: string) { setClientFilter(c); setPage(1); setSelected(null) }
 
   const counts = {
     all: ALL.length,
@@ -284,6 +281,7 @@ export default function EmployeesClient({ initial, locations }: { initial: Emplo
               <input placeholder="Search name, ID, location…" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} />
             </div>
             <button className="ep-btn ghost" onClick={exportCsv}>⬇ Export CSV</button>
+            <Link href="/dashboard/employees/bulk" className="ep-btn ghost" style={{ textDecoration: 'none' }}>⬆ Bulk upload</Link>
             <Link href="/dashboard/employees/new" className="ep-btn primary" style={{ textDecoration: 'none' }}>+ Add employee</Link>
           </div>
         </header>
@@ -310,16 +308,6 @@ export default function EmployeesClient({ initial, locations }: { initial: Emplo
                 </button>
               ))}
             </div>
-            <div className="ep-filter-group">
-              <div className="ep-filter-label">Client</div>
-              {['all', 'Talabat', 'Deliveroo'].map((c) => (
-                <button key={c} className={`ep-filter-item ${clientFilter === c ? 'active' : ''}`} onClick={() => setClient(c)}>
-                  <div className="ep-filter-dot" style={{ background: clientFilter === c ? T.tealBright : T.dimMid }} />
-                  {c === 'all' ? 'All clients' : c}
-                  <span className="ep-filter-count">{c === 'all' ? ALL.length : ALL.filter((e) => e.client === c).length}</span>
-                </button>
-              ))}
-            </div>
           </aside>
 
           <main className="ep-main">
@@ -338,7 +326,6 @@ export default function EmployeesClient({ initial, locations }: { initial: Emplo
                     <th onClick={() => toggleSort('status')}>Status {sortIcon('status')}</th>
                     <th onClick={() => toggleSort('location')}>Location {sortIcon('location')}</th>
                     <th onClick={() => toggleSort('branch')}>Branch {sortIcon('branch')}</th>
-                    <th onClick={() => toggleSort('client')}>Client {sortIcon('client')}</th>
                     <th onClick={() => toggleSort('clockedInAt')}>Clocked in {sortIcon('clockedInAt')}</th>
                     <th onClick={() => toggleSort('hourlyRate')}>Rate {sortIcon('hourlyRate')}</th>
                     <th onClick={() => toggleSort('hoursThisMonth')}>Hours (mo.) {sortIcon('hoursThisMonth')}</th>
@@ -347,7 +334,7 @@ export default function EmployeesClient({ initial, locations }: { initial: Emplo
                 </thead>
                 <tbody>
                   {pageRows.length === 0 && (
-                    <tr><td colSpan={9} style={{ textAlign: 'center', padding: 40, color: T.dim }}>No employees match your filters.</td></tr>
+                    <tr><td colSpan={8} style={{ textAlign: 'center', padding: 40, color: T.dim }}>No employees match your filters.</td></tr>
                   )}
                   {pageRows.map((emp) => (
                     <tr key={emp.id} className={selected === emp.id ? 'selected' : ''} onClick={() => setSelected(selected === emp.id ? null : emp.id)} style={{ opacity: emp.active ? 1 : 0.5 }}>
@@ -375,7 +362,6 @@ export default function EmployeesClient({ initial, locations }: { initial: Emplo
                         </select>
                       </td>
                       <td><span style={{ fontSize: 12, color: T.whiteMid }}>{emp.branch ?? '—'}</span></td>
-                      <td><span style={{ fontSize: 12, color: T.whiteMid }}>{emp.client ?? '—'}</span></td>
                       <td><span className="ep-mono">{fmt(emp.clockedInAt)}</span></td>
                       <td><span className="ep-mono">AED {emp.hourlyRate}</span></td>
                       <td><span className="ep-mono">{emp.hoursThisMonth}h</span></td>
@@ -413,7 +399,6 @@ export default function EmployeesClient({ initial, locations }: { initial: Emplo
                   <span className={`ep-badge ${selectedEmp.flagged ? 'flagged' : BADGE_CLASS[selectedEmp.status]}`}>
                     {selectedEmp.flagged ? '⚠ face flagged' : STATUS_META[selectedEmp.status].label}
                   </span>
-                  <span className="ep-badge" style={{ background: T.bgSubtle, color: T.dim, border: `1px solid ${T.border}` }}>{selectedEmp.client ?? 'No client'}</span>
                   {!selectedEmp.hasPhoto && <span className="ep-badge nophoto">⚠ no reference photo</span>}
                 </div>
               </div>

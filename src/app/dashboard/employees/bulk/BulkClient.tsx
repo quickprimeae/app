@@ -20,13 +20,12 @@ const COLUMNS = [
   { key: 'shift_days', required: false, desc: 'e.g. Mon-Fri' },
   { key: 'joining_date', required: true, desc: 'YYYY-MM-DD or DD/MM/YYYY' },
   { key: 'location', required: false, desc: 'Optional — exact DB location name' },
-  { key: 'supervisor', required: false, desc: 'Supervisor name' },
-  { key: 'vendor', required: false, desc: 'Talabat or Deliveroo' },
+  { key: 'vendor', required: false, desc: 'Al Jasar or SkillSet' },
   { key: 'branch', required: false, desc: 'Branch label (reference)' },
 ]
 const SAMPLE_ROWS = [
-  ['Ahmed Al Rashidi', '501234567', 'UAE', '8h', '2080', 'Mon-Sat', '2026-06-01', 'Carrefour — Mall of the Emirates', 'Ops Admin', 'Talabat', 'MOE'],
-  ['Maria Santos', '509876543', 'Philippines', '10h', '2600', 'Mon-Sat', '2026-06-01', 'Spinneys — JBR', 'Ops Admin', 'Deliveroo', 'JBR'],
+  ['Ahmed Al Rashidi', '501234567', 'UAE', '8h', '2080', 'Mon-Sat', '2026-06-01', 'SP_NAS', 'Al Jasar', 'NAS'],
+  ['Maria Santos', '509876543', 'Philippines', '10h', '2600', 'Mon-Sat', '2026-06-01', 'SP_DSO', 'SkillSet', 'DSO'],
 ]
 
 type Row = Record<string, string> & { _row: number; _errors: string[]; _status: 'valid' | 'error' }
@@ -67,8 +66,9 @@ function validateRow(row: Record<string, string>): string[] {
   else if (!validDate(jd)) errors.push('joining_date must be YYYY-MM-DD or DD/MM/YYYY')
 
   // Location is optional — left blank, the employee is created unassigned.
+  // Vendor is optional; supervisor is derived from the vendor, not entered.
   const vendor = clean(row.vendor).toLowerCase()
-  if (vendor && vendor !== 'talabat' && vendor !== 'deliveroo') errors.push('vendor must be Talabat or Deliveroo')
+  if (vendor && vendor !== 'al jasar' && vendor !== 'skillset') errors.push('vendor must be Al Jasar or SkillSet')
   return errors
 }
 
@@ -119,7 +119,7 @@ export default function BulkClient() {
     const payload = valid.map((r) => ({
       name: r.name, phone: r.phone, nationality: r.nationality,
       shift_type: r.shift_type, monthly_salary: r.monthly_salary, shift_days: r.shift_days,
-      joining_date: r.joining_date, location: r.location, supervisor: r.supervisor,
+      joining_date: r.joining_date, location: r.location,
       vendor: r.vendor, branch: r.branch,
     }))
     try {

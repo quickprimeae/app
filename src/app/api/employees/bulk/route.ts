@@ -1,7 +1,9 @@
 // src/app/api/employees/bulk/route.ts
 // Ops-only. POST { rows: [...] } — creates many employees from a parsed CSV.
 // Columns: name, phone, nationality, shift_type, monthly_salary, shift_days,
-// joining_date, location, supervisor, vendor, branch. hourly_rate is derived
+// joining_date, location, vendor, branch. vendor is 'Al Jasar' or 'SkillSet'
+// and maps to employees.vendor_id; the supervisor is DERIVED from the vendor
+// (vendors.supervisor_name), never entered here. hourly_rate is derived
 // (monthly_salary / 26 / shift_hours). Shift start/end are NOT set — pickers
 // inherit the location defaults. PIN setup links are NOT sent here — invite
 // the imported employees afterwards from the Pending invites page.
@@ -21,7 +23,6 @@ type InRow = {
   shift_days?: string
   joining_date?: string
   location?: string
-  supervisor?: string
   vendor?: string
   branch?: string
 }
@@ -73,17 +74,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Max 500 rows per upload' }, { status: 400 })
     }
 
-    // Resolve lookups once. Locations carry their client name for vendor checks.
-    const [{ data: locs }, { data: sups }, { data: existing }] = await Promise.all([
-      supabase.from('locations').select('id, name, client:clients(name)').eq('tenant_id', tenantId),
-      supabase.from('ops_users').select('id, name').eq('tenant_id', tenantId),
+    // Resolve lookups once. Vendor name -> vendor_id (supervisor is derived from
+    // the vendor, so no supervisor lookup is needed any more).
+    const [{ data: locs }, { data: vends }, { data: existing }] = await Promise.all([
+      supabase.from('locations').select('id, name').eq('tenant_id', tenantId),
+      supabase.from('vendors').select('id, name').eq('tenant_id', tenantId),
       supabase.from('employees').select('phone').eq('tenant_id', tenantId),
     ])
     // Case-insensitive lookups; collapse internal whitespace on the keys too.
     const locByName = new Map(
-      ((locs ?? []) as any[]).map((l) => [clean(l.name).toLowerCase(), { id: l.id, client: clean(l.client?.name).toLowerCase() }])
+      ((locs ?? []) as any[]).map((l) => [clean(l.name).toLowerCase(), { id: l.id }])
     )
-    const supByName = new Map((sups ?? []).map((s) => [clean(s.name).toLowerCase(), s.id]))
+    const vendorByName = new Map(((vends ?? []) as any[]).map((v) => [clean(v.name).toLowerCase(), v.id]))
     // Existing phones are normalized in the DB (migration 0004) — match on E.164.
     const takenPhones = new Set((existing ?? []).map((e) => e.phone))
 
@@ -121,26 +123,25 @@ export async function POST(req: NextRequest) {
       // Location is OPTIONAL. If given it must match a real location; if blank
       // the employee is created unassigned (assign later from the Employees tab).
       const locName = clean(r.location)
-      let loc: { id: string; client: string } | undefined
+      let loc: { id: string } | undefined
       if (locName) {
         loc = locByName.get(locName.toLowerCase())
         if (!loc) { err(`Unknown location: ${locName}`, phone); continue }
       }
 
-      // vendor maps to the client; if given it must match the location's client (case-insensitive).
-      const vendor = clean(r.vendor).toLowerCase()
-      if (vendor && loc && loc.client && vendor !== loc.client) {
-        err(`Vendor "${clean(r.vendor)}" doesn't match location's client "${loc.client}"`, phone)
-        continue
+      // vendor is OPTIONAL; if given it must be a known vendor (Al Jasar / SkillSet).
+      // It maps to vendor_id; the supervisor is derived from the vendor in the UI.
+      const vendorKey = clean(r.vendor).toLowerCase()
+      let vendor_id: string | null = null
+      if (vendorKey) {
+        vendor_id = vendorByName.get(vendorKey) ?? null
+        if (!vendor_id) { err(`Unknown vendor "${clean(r.vendor)}" (use Al Jasar or SkillSet)`, phone); continue }
       }
 
       const joiningRaw = clean(r.joining_date)
       if (!joiningRaw) { err('Missing joining_date', phone); continue }
       const startDate = parseDate(joiningRaw)
       if (!startDate) { err(`Invalid joining_date: ${joiningRaw} (use YYYY-MM-DD or DD/MM/YYYY)`, phone); continue }
-
-      const supKey = clean(r.supervisor).toLowerCase()
-      const supervisor_id = supKey ? supByName.get(supKey) ?? null : null
 
       // No PIN setup token is minted here — invites are sent later from the
       // Pending invites page, so imported employees read "Not sent yet".
@@ -154,7 +155,7 @@ export async function POST(req: NextRequest) {
           nationality: clean(r.nationality) || null,
           role: 'picker',
           location_id: loc ? loc.id : null,
-          supervisor_id,
+          vendor_id,
           hourly_rate,
           monthly_salary: Number(monthlyRaw),
           shift_type: shiftType,

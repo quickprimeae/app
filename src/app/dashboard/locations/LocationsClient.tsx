@@ -163,8 +163,6 @@ export default function LocationsClient({ initial, clients }: { initial: Locatio
                   <div className="lp-list-info">
                     <div className="lp-list-name">{loc.name}</div>
                     <div className="lp-list-meta">
-                      <span>{loc.client ?? '—'}</span><span>·</span>
-                      <span>{loc.supervisor ?? 'No supervisor'}</span><span>·</span>
                       <span>{loc.geofenceRadius}m fence</span>
                     </div>
                   </div>
@@ -217,7 +215,7 @@ export default function LocationsClient({ initial, clients }: { initial: Locatio
                   <div className="lp-detail-header">
                     <div>
                       <div className="lp-detail-title">{sel.name}</div>
-                      <div className="lp-detail-sub">{sel.address ?? sel.area ?? '—'} · {sel.client ?? '—'} · {sel.supervisor ?? 'No supervisor'}</div>
+                      <div className="lp-detail-sub">{sel.address ?? sel.area ?? '—'}</div>
                     </div>
                     <div className={`lp-status-dot-label ${sel.status}`} style={{ fontSize: 11 }}>
                       {sel.status === 'active' ? '● Active' : sel.status === 'noshow' ? '✗ No-show' : sel.status === 'late' ? '⚠ Late' : '–'}
@@ -226,7 +224,7 @@ export default function LocationsClient({ initial, clients }: { initial: Locatio
                   <div className="lp-detail-grid">
                     {[
                       { label: 'Attendance', val: `${sel.clockedIn}/${sel.total} pickers`, col: sel.clockedIn === sel.total && sel.total > 0 ? T.tealBright : T.amber },
-                      { label: 'Shift', val: sel.shiftHours, col: T.white },
+                      { label: 'Store timings', val: sel.shiftHours, col: T.white },
                       { label: 'Geofence', val: `${sel.geofenceRadius}m radius`, col: T.white },
                       { label: 'Days', val: sel.shiftDays ?? '—', col: T.white },
                     ].map((s) => (
@@ -257,7 +255,7 @@ export default function LocationsClient({ initial, clients }: { initial: Locatio
             <div className="lp-modal" onClick={(e) => e.stopPropagation()}>
               <div className="lp-modal-title">{form.id ? 'Edit location' : 'Add location'}</div>
               <div style={{ fontSize: 12, color: T.dim, marginBottom: 16, lineHeight: 1.5 }}>
-                Shift times are <strong style={{ color: T.whiteMid }}>optional defaults</strong> — used only for pickers who don&apos;t have their own shift set. Name, client, and coordinates are required.
+                Store timings are <strong style={{ color: T.whiteMid }}>optional defaults</strong> — used only for pickers who don&apos;t have their own shift set. Name, client, and coordinates are required.
               </div>
               <div className="lp-modal-grid">
                 <Field label="Name *"><input className="lp-input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
@@ -272,9 +270,9 @@ export default function LocationsClient({ initial, clients }: { initial: Locatio
                 <Field label="Latitude *"><input className="lp-input" value={form.lat} onChange={(e) => setForm({ ...form, lat: e.target.value })} /></Field>
                 <Field label="Longitude *"><input className="lp-input" value={form.lng} onChange={(e) => setForm({ ...form, lng: e.target.value })} /></Field>
                 <Field label="Geofence (m)"><input className="lp-input" value={form.geofence_radius} onChange={(e) => setForm({ ...form, geofence_radius: e.target.value })} /></Field>
-                <Field label="Default shift days" full><input className="lp-input" placeholder="e.g. Mon-Sat (optional)" value={form.shift_days} onChange={(e) => setForm({ ...form, shift_days: e.target.value })} /></Field>
-                <Field label="Default shift start"><input className="lp-input" type="time" value={form.shift_start} onChange={(e) => setForm({ ...form, shift_start: e.target.value })} /></Field>
-                <Field label="Default shift end"><input className="lp-input" type="time" value={form.shift_end} onChange={(e) => setForm({ ...form, shift_end: e.target.value })} /></Field>
+                <Field label="Default store days" full><input className="lp-input" placeholder="e.g. Mon-Sat (optional)" value={form.shift_days} onChange={(e) => setForm({ ...form, shift_days: e.target.value })} /></Field>
+                <Field label="Default store start"><input className="lp-input" type="time" value={form.shift_start} onChange={(e) => setForm({ ...form, shift_start: e.target.value })} /></Field>
+                <Field label="Default store end"><input className="lp-input" type="time" value={form.shift_end} onChange={(e) => setForm({ ...form, shift_end: e.target.value })} /></Field>
               </div>
               <div className="lp-modal-actions">
                 <button className="lp-btn ghost" onClick={() => setForm(null)}>Cancel</button>

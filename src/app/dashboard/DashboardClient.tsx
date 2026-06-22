@@ -314,7 +314,6 @@ export default function DashboardClient({
                 <div className="db-loc-top">
                   <div>
                     <div className="db-loc-name">{loc.name}</div>
-                    <div className="db-loc-client">{loc.client}</div>
                   </div>
                   <div className={`db-loc-status ${loc.status}`}>
                     {loc.status === 'active' && <><span style={{ width: 5, height: 5, borderRadius: '50%', background: T.green, display: 'inline-block' }} /> Active</>}
@@ -347,7 +346,7 @@ export default function DashboardClient({
                     </div>
                     <span style={{ marginLeft: 4 }}>{loc.clockedIn}/{loc.total} in</span>
                   </div>
-                  <div>Shift: {hm(loc.shiftStart)} – {hm(loc.shiftEnd)}</div>
+                  <div>Store timings: {hm(loc.shiftStart)} – {hm(loc.shiftEnd)}</div>
                 </div>
               </div>
             ))}
@@ -361,10 +360,6 @@ export default function DashboardClient({
               <div className="db-detail-top">
                 <div>
                   <div className="db-detail-location">{selectedLoc.name}</div>
-                  <div className="db-detail-meta">
-                    <span>{selectedLoc.client}</span>
-                    {selectedLoc.supervisor && (<><span>·</span><span>{selectedLoc.supervisor}</span></>)}
-                  </div>
                 </div>
                 <button className="db-close-btn" onClick={() => setSelected(null)}>✕</button>
               </div>
@@ -378,12 +373,8 @@ export default function DashboardClient({
                     </div>
                   </div>
                   <div className="db-detail-stat">
-                    <div className="db-detail-stat-label">Shift</div>
+                    <div className="db-detail-stat-label">Store timings</div>
                     <div className="db-detail-stat-val">{hm(selectedLoc.shiftStart)}–{hm(selectedLoc.shiftEnd)}</div>
-                  </div>
-                  <div className="db-detail-stat">
-                    <div className="db-detail-stat-label">Supervisor</div>
-                    <div className="db-detail-stat-val" style={{ fontSize: 13 }}>{selectedLoc.supervisor ?? '—'}</div>
                   </div>
                   <div className="db-detail-stat">
                     <div className="db-detail-stat-label">Status</div>
@@ -403,8 +394,15 @@ export default function DashboardClient({
                       <div key={i} className="db-picker-row">
                         <div className="db-picker-avatar">{initials(p.name)}</div>
                         <div className="db-picker-info">
-                          <div className="db-picker-name">{p.name}</div>
+                          <div className="db-picker-name">
+                            {p.name}
+                            {p.shiftType && <span className="db-picker-type">{p.shiftType}</span>}
+                          </div>
                           <div className="db-picker-id">{p.id}</div>
+                          <div className="db-picker-meta">
+                            <span className={`db-picker-roster ${p.rosterShift ? '' : 'none'}`}>{p.rosterShift ?? 'No shift assigned'}</span>
+                            {p.supervisor && <span className="db-picker-sup">{p.supervisor}</span>}
+                          </div>
                         </div>
                         {showTime && (
                           <div className="db-picker-time">
@@ -542,8 +540,14 @@ const css = `
 .db-picker-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; margin-bottom: 6px; background: ${T.bgSubtle}; border: 1px solid ${T.border}; }
 .db-picker-avatar { width: 32px; height: 32px; border-radius: 50%; background: ${T.tealDark}; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: ${T.onTeal}; flex-shrink: 0; }
 .db-picker-info { flex: 1; }
-.db-picker-name { font-size: 13px; font-weight: 500; color: ${T.white}; }
+.db-picker-name { font-size: 13px; font-weight: 500; color: ${T.white}; display: flex; align-items: center; gap: 6px; }
+.db-picker-type { font-size: 10px; font-weight: 600; color: ${T.tealText}; background: ${T.tealFaint}; border: 1px solid #9DEEE6; border-radius: 5px; padding: 1px 5px; letter-spacing: 0.02em; }
 .db-picker-id { font-family: 'DM Mono', monospace; font-size: 10px; color: ${T.dim}; }
+.db-picker-meta { display: flex; align-items: center; gap: 8px; margin-top: 3px; font-size: 11px; }
+.db-picker-roster { font-family: 'DM Mono', monospace; color: ${T.whiteMid}; }
+.db-picker-roster.none { font-family: inherit; color: ${T.dimMid}; font-style: italic; }
+.db-picker-sup { color: ${T.dim}; }
+.db-picker-sup::before { content: '·'; margin-right: 8px; color: ${T.dimMid}; }
 .db-picker-time { text-align: right; }
 .db-picker-time-val { font-family: 'DM Mono', monospace; font-size: 12px; color: ${T.tealText}; }
 .db-picker-time-label { font-size: 10px; color: ${T.dim}; }

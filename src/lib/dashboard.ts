@@ -15,6 +15,12 @@ export type DashPicker = {
   status: PickerStatus
   clockedInAt: string | null
   flagged: boolean
+  // Vendor model: shift_type is read DIRECTLY from employees (never derived from
+  // roster duration); rosterShift is today's scheduled time (null = none yet);
+  // supervisor is the picker's VENDOR supervisor (null when vendor_id is null).
+  shiftType: string | null
+  rosterShift: string | null
+  supervisor: string | null
 }
 export type DashLocation = {
   id: string
@@ -76,7 +82,7 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
   const supabase = createServerSupabaseClient()
   const today = new Date().toISOString().split('T')[0]
 
-  const [locRes, empRes, evtRes, alertRes] = await Promise.all([
+  const [locRes, empRes, evtRes, alertRes, schedRes] = await Promise.all([
     supabase
       .from('locations')
       .select('id, name, chain, area, shift_start, shift_end, client:clients(name)')
@@ -85,7 +91,7 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
       .order('name', { ascending: true }),
     supabase
       .from('employees')
-      .select('id, first_name, last_name, employee_number, location_id, shift_start, shift_end, pin_set, supervisor:ops_users(name)')
+      .select('id, first_name, last_name, employee_number, location_id, shift_start, shift_end, pin_set, shift_type, supervisor:ops_users(name), vendor:vendors(supervisor_name)')
       .eq('tenant_id', tenantId)
       .eq('active', true)
       .eq('role', 'picker'),
@@ -104,6 +110,13 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
       .eq('resolved', false)
       .order('created_at', { ascending: false })
       .limit(100),
+    // Today's rostered shift per picker (concrete schedule, not store timings).
+    supabase
+      .from('scheduled_shifts')
+      .select('employee_id, start_time, end_time')
+      .eq('tenant_id', tenantId)
+      .eq('date', today)
+      .eq('status', 'scheduled'),
   ])
 
   // Cast embedded relations to any: without generated DB types, supabase-js
@@ -112,6 +125,14 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
   const employees = (empRes.data ?? []) as any[]
   const events = (evtRes.data ?? []) as { employee_id: string; timestamp: string; face_match_flagged: boolean | null }[]
   const alertRows = (alertRes.data ?? []) as any[]
+  const scheduled = (schedRes.data ?? []) as { employee_id: string; start_time: string; end_time: string }[]
+
+  // employee_id -> today's rostered "HH:MM-HH:MM" (unique per employee+date).
+  const hm = (t: string | null) => (t ? t.slice(0, 5) : null)
+  const rosterByEmployee = new Map<string, string>()
+  for (const s of scheduled) {
+    rosterByEmployee.set(s.employee_id, `${hm(s.start_time)}–${hm(s.end_time)}`)
+  }
 
   // Face-flag is sourced from the alerts table (single source). "Flagged" =
   // a PENDING face flag (open + un-reviewed); a rejected/escalated flag does
@@ -176,6 +197,9 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
         status: pstatus,
         clockedInAt: ev?.timestamp ?? null,
         flagged: flaggedEmpIds.has(e.id),
+        shiftType: e.shift_type ?? null,
+        rosterShift: rosterByEmployee.get(e.id) ?? null,
+        supervisor: e.vendor?.supervisor_name ?? null,
       }
     })
 
