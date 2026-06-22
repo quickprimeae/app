@@ -127,19 +127,10 @@ export default function DashboardClient({
     }
   }, [scheduleRefresh])
 
-  async function resolveAlert(id: string) {
-    // Optimistic removal.
-    setData((d) => ({ ...d, alerts: d.alerts.filter((a) => a.id !== id) }))
-    try {
-      await fetch('/api/alerts', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ alert_id: id }),
-      })
-    } finally {
-      refresh()
-    }
-  }
+  // The dashboard is TRIAGE-ONLY: alerts are not resolved here. Each row is a
+  // deep-link to its action surface on /dashboard/alerts (reusing ?flag), where
+  // the right next action lives (image review for face flags, resolve for the
+  // rest). No PATCH /api/alerts from the dashboard.
 
   async function signOut() {
     await createBrowserSupabaseClient().auth.signOut()
@@ -247,15 +238,15 @@ export default function DashboardClient({
                   <Link href="/dashboard/alerts" className="db-btn-sm">View all</Link>
                 </div>
                 {alerts.map((a) => (
-                  <div key={a.id} className="db-alert-row">
+                  <Link key={a.id} href={`/dashboard/alerts?flag=${a.id}`} className="db-alert-row">
                     <div className={`db-alert-icon ${a.type}`}>{a.icon}</div>
                     <div className="db-alert-body">
                       <div className="db-alert-title">{a.title}</div>
                       <div className="db-alert-sub">{a.sub}</div>
                     </div>
                     <div className="db-alert-time">{a.time}</div>
-                    <button className="db-alert-action" onClick={() => resolveAlert(a.id)}>Resolve</button>
-                  </div>
+                    <span className="db-alert-action">Review →</span>
+                  </Link>
                 ))}
               </div>
             </>
@@ -513,7 +504,7 @@ const css = `
 .db-alerts { background: ${T.bgCard}; border: 1px solid ${T.border}; border-radius: 12px; overflow: hidden; margin-bottom: 28px; }
 .db-alerts-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid ${T.border}; }
 .db-alerts-title { font-family: var(--font-jakarta), sans-serif; font-size: 13px; font-weight: 600; color: ${T.whiteMid}; display: flex; align-items: center; gap: 8px; }
-.db-alert-row { display: flex; align-items: center; gap: 14px; padding: 12px 18px; border-bottom: 1px solid ${T.border}; transition: background 0.1s; }
+.db-alert-row { display: flex; align-items: center; gap: 14px; padding: 12px 18px; border-bottom: 1px solid ${T.border}; transition: background 0.1s; text-decoration: none; color: inherit; cursor: pointer; }
 .db-alert-row:last-child { border-bottom: none; }
 .db-alert-row:hover { background: ${T.bgHover}; }
 .db-alert-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }

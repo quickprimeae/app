@@ -6,6 +6,7 @@
 
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 import { T } from '@/lib/theme'
 
@@ -64,9 +65,19 @@ type TypeFilter = 'all' | 'noshow' | 'late' | 'faceflag' | 'clockout'
 export default function AlertsClient({ initial, focusFlag, startFaceflag }: { initial: AlertItem[]; focusFlag?: string | null; startFaceflag?: boolean }) {
   const router = useRouter()
   const alerts = initial
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>(focusFlag || startFaceflag ? 'faceflag' : 'all')
-  const [showResolved, setShowResolved] = useState(false)
-  const [expanded, setExpanded] = useState<string | null>(null)
+
+  // ?flag deep-link resolves for ANY alert type, not just face flags. Look up the
+  // targeted alert so we open the correct surface: a faceflag goes to the review
+  // queue (FlagCard); anything else lands focused + expanded in the list (and we
+  // reveal the resolved section if the target was already resolved).
+  const focusedAlert = focusFlag ? alerts.find((a) => a.id === focusFlag) : undefined
+  const focusIsFace = focusedAlert?.type === 'faceflag'
+
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>(
+    startFaceflag || focusIsFace || (focusFlag && !focusedAlert) ? 'faceflag' : 'all'
+  )
+  const [showResolved, setShowResolved] = useState(!!focusedAlert?.resolved)
+  const [expanded, setExpanded] = useState<string | null>(focusedAlert && !focusIsFace ? focusFlag ?? null : null)
   const [notes, setNotes] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
 
@@ -191,7 +202,7 @@ export default function AlertsClient({ initial, focusFlag, startFaceflag }: { in
               <>
                 <div className="al-section-title">🚨 Critical <span>— requires immediate action</span></div>
                 {visibleCritical.map((a, i) => (
-                  <AlertCard key={a.id} alert={a} isExpanded={expanded === a.id} busy={busy} onToggle={() => setExpanded(expanded === a.id ? null : a.id)} onResolve={() => resolve(a.id)} note={notes[a.id] || ''} onNoteChange={(v) => setNotes((n) => ({ ...n, [a.id]: v }))} delay={i * 0.05} />
+                  <AlertCard key={a.id} alert={a} focus={a.id === focusFlag} isExpanded={expanded === a.id} busy={busy} onToggle={() => setExpanded(expanded === a.id ? null : a.id)} onResolve={() => resolve(a.id)} note={notes[a.id] || ''} onNoteChange={(v) => setNotes((n) => ({ ...n, [a.id]: v }))} delay={i * 0.05} />
                 ))}
               </>
             )}
@@ -200,7 +211,7 @@ export default function AlertsClient({ initial, focusFlag, startFaceflag }: { in
               <>
                 <div className="al-section-title" style={{ marginTop: 24 }}>⚠️ Warnings <span>— monitor and action if needed</span></div>
                 {visibleWarnings.map((a, i) => (
-                  <AlertCard key={a.id} alert={a} isExpanded={expanded === a.id} busy={busy} onToggle={() => setExpanded(expanded === a.id ? null : a.id)} onResolve={() => resolve(a.id)} note={notes[a.id] || ''} onNoteChange={(v) => setNotes((n) => ({ ...n, [a.id]: v }))} delay={i * 0.05} />
+                  <AlertCard key={a.id} alert={a} focus={a.id === focusFlag} isExpanded={expanded === a.id} busy={busy} onToggle={() => setExpanded(expanded === a.id ? null : a.id)} onResolve={() => resolve(a.id)} note={notes[a.id] || ''} onNoteChange={(v) => setNotes((n) => ({ ...n, [a.id]: v }))} delay={i * 0.05} />
                 ))}
               </>
             )}
@@ -209,7 +220,7 @@ export default function AlertsClient({ initial, focusFlag, startFaceflag }: { in
               <>
                 <div className="al-section-title" style={{ marginTop: 24 }}>✓ Resolved</div>
                 {visibleResolved.map((a, i) => (
-                  <AlertCard key={a.id} alert={a} isExpanded={false} busy={busy} onToggle={() => {}} onResolve={() => {}} note="" onNoteChange={() => {}} delay={i * 0.04} />
+                  <AlertCard key={a.id} alert={a} focus={a.id === focusFlag} isExpanded={false} busy={busy} onToggle={() => {}} onResolve={() => {}} note="" onNoteChange={() => {}} delay={i * 0.04} />
                 ))}
               </>
             )}
@@ -230,8 +241,9 @@ export default function AlertsClient({ initial, focusFlag, startFaceflag }: { in
   )
 }
 
-function AlertCard({ alert, isExpanded, busy, onToggle, onResolve, note, onNoteChange, delay }: {
+function AlertCard({ alert, focus, isExpanded, busy, onToggle, onResolve, note, onNoteChange, delay }: {
   alert: AlertItem
+  focus: boolean
   isExpanded: boolean
   busy: boolean
   onToggle: () => void
@@ -241,8 +253,15 @@ function AlertCard({ alert, isExpanded, busy, onToggle, onResolve, note, onNoteC
   delay: number
 }) {
   const meta = TYPE_META[alert.type] || TYPE_META.system
+  // A committed face flag (has a clock_event_id -> selfie + reference) must be
+  // settled THROUGH the image review, not plain-resolved (which would leave
+  // clock_events.face_match_flagged = true on the punch). Route it to the queue.
+  const isReviewableFace = alert.type === 'faceflag' && !!alert.clockEventId
+  // ?flag deep-link target: scroll this card into view (mirrors FlagCard).
+  const ref = useRef<HTMLDivElement | null>(null)
+  useEffect(() => { if (focus && ref.current) ref.current.scrollIntoView({ behavior: 'smooth', block: 'center' }) }, [focus])
   return (
-    <div className={`al-card ${alert.resolved ? 'resolved' : ''}`} style={{ animationDelay: `${delay}s`, borderColor: isExpanded && !alert.resolved ? meta.border : undefined }}>
+    <div ref={ref} className={`al-card ${alert.resolved ? 'resolved' : ''} ${focus ? 'focus' : ''}`} style={{ animationDelay: `${delay}s`, borderColor: isExpanded && !alert.resolved ? meta.border : undefined }}>
       <div className="al-card-main" onClick={onToggle}>
         <div className="al-card-icon" style={{ background: meta.bg, borderColor: meta.border }}>{meta.icon}</div>
         <div className="al-card-body">
@@ -265,16 +284,26 @@ function AlertCard({ alert, isExpanded, busy, onToggle, onResolve, note, onNoteC
       </div>
 
       {isExpanded && !alert.resolved && (
-        <div className="al-card-expanded">
-          <div className="al-expand-col">
-            <div className="al-expand-label">Resolution notes</div>
-            <textarea className="al-notes-input" placeholder="Add notes about how this was handled…" value={note} onChange={(e) => onNoteChange(e.target.value)} onClick={(e) => e.stopPropagation()} />
+        isReviewableFace ? (
+          <div className="al-card-expanded">
+            <div className="al-expand-actions" style={{ width: '100%' }}>
+              <div className="al-expand-label">Action</div>
+              <Link href={`/dashboard/alerts?flag=${alert.id}`} className="al-action-btn primary" style={{ textDecoration: 'none', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>🔍 Review selfie — Approve / Reject →</Link>
+              <div style={{ fontSize: 11, color: T.dim, marginTop: 8, lineHeight: 1.5 }}>Face-match flags are cleared through the image review, not resolved here — a manual resolve would leave the punch flagged.</div>
+            </div>
           </div>
-          <div className="al-expand-actions">
-            <div className="al-expand-label">Actions</div>
-            <button className="al-action-btn primary" disabled={busy} onClick={(e) => { e.stopPropagation(); onResolve() }}>✓ Mark as resolved</button>
+        ) : (
+          <div className="al-card-expanded">
+            <div className="al-expand-col">
+              <div className="al-expand-label">Resolution notes</div>
+              <textarea className="al-notes-input" placeholder="Add notes about how this was handled…" value={note} onChange={(e) => onNoteChange(e.target.value)} onClick={(e) => e.stopPropagation()} />
+            </div>
+            <div className="al-expand-actions">
+              <div className="al-expand-label">Actions</div>
+              <button className="al-action-btn primary" disabled={busy} onClick={(e) => { e.stopPropagation(); onResolve() }}>✓ Mark as resolved</button>
+            </div>
           </div>
-        </div>
+        )
       )}
     </div>
   )
@@ -411,6 +440,7 @@ const css = `
 @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 .al-card:hover{border-color:${T.borderMid}}
 .al-card.resolved{opacity:.55}
+.al-card.focus{border-color:${T.tealMid};box-shadow:0 0 0 2px rgba(0,204,188,.25)}
 .al-card-main{display:flex;align-items:flex-start;gap:14px;padding:16px 18px}
 .al-card-icon{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;border:1px solid transparent}
 .al-card-body{flex:1;min-width:0}
