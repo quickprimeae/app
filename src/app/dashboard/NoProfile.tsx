@@ -14,7 +14,7 @@ export default function NoProfile({ email }: { email: string | null }) {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
       <div style={{ maxWidth: 420, textAlign: 'center' }}>
-        <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 22, fontWeight: 700, color: 'var(--white)', marginBottom: 10 }}>
+        <div style={{ fontFamily: "var(--font-jakarta), sans-serif", fontSize: 22, fontWeight: 700, color: 'var(--white)', marginBottom: 10 }}>
           No ops profile linked
         </div>
         <p style={{ color: 'var(--dim)', fontSize: 14, lineHeight: 1.6, marginBottom: 24 }}>
@@ -24,7 +24,7 @@ export default function NoProfile({ email }: { email: string | null }) {
         </p>
         <button
           onClick={signOut}
-          style={{ background: 'var(--teal-mid)', color: '#fff', border: 'none', borderRadius: 10, padding: '12px 22px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
+          style={{ background: 'var(--teal-mid)', color: '#1B2B2B', border: 'none', borderRadius: 10, padding: '12px 22px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
         >
           Sign out
         </button>

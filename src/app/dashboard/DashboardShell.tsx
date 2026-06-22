@@ -10,12 +10,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createBrowserSupabaseClient } from '@/lib/supabase'
 
-const T = {
-  bg: '#0a0f0d', bgCard: '#111815', bgHover: '#161e1a', bgSubtle: '#0f1712',
-  border: '#1e2b24', borderMid: '#243329', teal: '#0F6E56', tealBright: '#25D09A',
-  tealText: '#5DCAA5', tealFaint: '#0d1f18', white: '#f0f7f4', whiteMid: '#c8ddd6',
-  dim: '#6b8078', dimMid: '#4a6058', red: '#ef4444',
-}
+import { T } from '@/lib/theme'
 
 type NavItem = { icon: string; label: string; href: string }
 
@@ -152,7 +147,7 @@ const css = `
 .shell-nav-section { padding: 0 12px; margin-bottom: 24px; }
 .shell-nav-label { font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: ${T.dimMid}; padding: 0 8px; margin-bottom: 6px; }
 .shell.collapsed .shell-nav-label { opacity: 0; height: 6px; margin-bottom: 0; overflow: hidden; }
-.shell-nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; color: ${T.dim}; transition: background 0.12s, color 0.12s; border: none; background: none; width: 100%; text-align: left; text-decoration: none; }
+.shell-nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; cursor: pointer; font-family: var(--font-jakarta), sans-serif; font-size: 13px; font-weight: 500; color: ${T.dim}; transition: background 0.12s, color 0.12s; border: none; background: none; width: 100%; text-align: left; text-decoration: none; }
 .shell-nav-item:hover { background: ${T.bgHover}; color: ${T.whiteMid}; }
 .shell-nav-item.active { background: ${T.tealFaint}; color: ${T.tealBright}; }
 .shell-nav-icon { font-size: 15px; width: 18px; text-align: center; flex-shrink: 0; }

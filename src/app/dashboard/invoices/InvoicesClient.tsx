@@ -5,14 +5,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 
-const T = {
-  bg: '#0a0f0d', bgCard: '#111815', bgHover: '#161e1a', bgSubtle: '#0f1712',
-  border: '#1e2b24', borderMid: '#243329', teal: '#0F6E56', tealMid: '#1D9E75',
-  tealBright: '#25D09A', tealText: '#5DCAA5', tealFaint: '#0d1f18',
-  green: '#22c55e', greenBg: '#0d2018', amber: '#f59e0b', amberBg: '#1f1608',
-  red: '#ef4444', redBg: '#1f0d0d', white: '#f0f7f4', whiteMid: '#c8ddd6',
-  dim: '#6b8078', dimMid: '#4a6058',
-}
+import { T } from '@/lib/theme'
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 type Client = { id: string; name: string }
@@ -148,7 +141,7 @@ export default function InvoicesClient({ tenantId, clients }: { tenantId: string
                 <div className="iv-field"><label>Year</label><select value={gen.year} onChange={(e) => setGen({ ...gen, year: Number(e.target.value) })}>{[today.y, today.y - 1].map((y) => <option key={y} value={y}>{y}</option>)}</select></div>
                 <div className="iv-field"><label>VAT %</label><input type="number" value={gen.vat_rate} onChange={(e) => setGen({ ...gen, vat_rate: Number(e.target.value) })} /></div>
               </div>
-              {msg && <div className="iv-banner" style={{ background: T.redBg, borderColor: '#3d1a1a', color: T.red }}>{msg}</div>}
+              {msg && <div className="iv-banner" style={{ background: T.redBg, borderColor: '#FCA5A5', color: T.red }}>{msg}</div>}
               <div className="iv-modal-actions">
                 <button className="iv-btn ghost" onClick={() => setGenOpen(false)}>Cancel</button>
                 <button className="iv-btn primary" disabled={busy} onClick={generate}>{busy ? 'Generating…' : 'Generate'}</button>
@@ -163,19 +156,19 @@ export default function InvoicesClient({ tenantId, clients }: { tenantId: string
 
 const css = `
 *,*::before,*::after{box-sizing:border-box}
-.iv-root{font-family:'DM Sans',sans-serif;background:${T.bg};min-height:100vh;color:${T.white}}
+.iv-root{font-family:var(--font-jakarta),sans-serif;background:${T.bg};min-height:100vh;color:${T.white}}
 .iv-topbar{background:${T.bgCard};border-bottom:1px solid ${T.border};display:flex;align-items:center;padding:0 28px;height:56px;gap:14px;position:sticky;top:0;z-index:100}
 .iv-logo{font-family:'DM Mono',monospace;font-size:13px;color:${T.tealBright};letter-spacing:.06em;text-decoration:none}
 .iv-divider{width:1px;height:20px;background:${T.border}}
-.iv-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:600;color:${T.whiteMid}}
+.iv-title{font-family:var(--font-jakarta),sans-serif;font-size:15px;font-weight:600;color:${T.whiteMid}}
 .iv-right{margin-left:auto;display:flex;align-items:center;gap:10px}
-.iv-btn{padding:8px 16px;border-radius:8px;border:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer}
-.iv-btn.primary{background:${T.tealMid};color:#fff}.iv-btn.primary:hover{opacity:.9}.iv-btn.primary:disabled{opacity:.45;cursor:not-allowed}
+.iv-btn{padding:8px 16px;border-radius:8px;border:none;font-family:var(--font-jakarta),sans-serif;font-size:13px;font-weight:600;cursor:pointer}
+.iv-btn.primary{background:${T.tealMid};color:#1B2B2B}.iv-btn.primary:hover{opacity:.9}.iv-btn.primary:disabled{opacity:.45;cursor:not-allowed}
 .iv-btn.ghost{background:${T.bgSubtle};color:${T.whiteMid};border:1px solid ${T.border}}.iv-btn.ghost:hover{border-color:${T.teal};color:${T.tealBright}}
 .iv-main{padding:28px 32px}
 .iv-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
 .iv-stat{background:${T.bgCard};border:1px solid ${T.border};border-radius:10px;padding:16px 18px}
-.iv-stat-val{font-family:'Syne',sans-serif;font-size:24px;font-weight:700;line-height:1;margin-bottom:4px}
+.iv-stat-val{font-family:var(--font-jakarta),sans-serif;font-size:24px;font-weight:700;line-height:1;margin-bottom:4px}
 .iv-stat-label{font-size:11px;color:${T.dim};font-weight:500}
 .iv-banner{padding:12px 16px;border-radius:10px;font-size:13px;margin-bottom:16px;background:${T.tealFaint};border:1px solid ${T.teal};color:${T.tealBright}}
 .iv-table-wrap{background:${T.bgCard};border:1px solid ${T.border};border-radius:12px;overflow:hidden}
@@ -189,20 +182,20 @@ const css = `
 .iv-mono{font-family:'DM Mono',monospace;font-size:12px;color:${T.whiteMid}}
 .iv-badge{font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;text-transform:uppercase;letter-spacing:.03em}
 .iv-badge.draft{background:${T.bgSubtle};color:${T.dim};border:1px solid ${T.border}}
-.iv-badge.sent{background:${T.amberBg};color:${T.amber};border:1px solid #5a3d0a}
-.iv-badge.paid{background:${T.greenBg};color:${T.green};border:1px solid #1a4030}
-.iv-badge.overdue{background:${T.redBg};color:${T.red};border:1px solid #3d1a1a}
+.iv-badge.sent{background:${T.amberBg};color:${T.amber};border:1px solid #FCD34D}
+.iv-badge.paid{background:${T.greenBg};color:${T.green};border:1px solid #9DEEE6}
+.iv-badge.overdue{background:${T.redBg};color:${T.red};border:1px solid #FCA5A5}
 .iv-actions{display:flex;gap:6px}
-.iv-act{padding:5px 10px;border-radius:6px;border:1px solid ${T.border};background:none;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;color:${T.whiteMid};cursor:pointer;white-space:nowrap;transition:all .12s}
+.iv-act{padding:5px 10px;border-radius:6px;border:1px solid ${T.border};background:none;font-family:var(--font-jakarta),sans-serif;font-size:11px;font-weight:600;color:${T.whiteMid};cursor:pointer;white-space:nowrap;transition:all .12s}
 .iv-act:hover{border-color:${T.tealMid};color:${T.tealBright}}
 .iv-act:disabled{opacity:.5;cursor:not-allowed}
 .iv-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;display:flex;align-items:center;justify-content:center;padding:24px}
 .iv-modal{width:100%;max-width:480px;background:${T.bgCard};border:1px solid ${T.borderMid};border-radius:14px;padding:24px}
-.iv-modal-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:600;color:${T.white};margin-bottom:6px}
+.iv-modal-title{font-family:var(--font-jakarta),sans-serif;font-size:18px;font-weight:600;color:${T.white};margin-bottom:6px}
 .iv-modal-sub{font-size:13px;color:${T.dim};line-height:1.5;margin-bottom:18px}
 .iv-field{display:flex;flex-direction:column;gap:5px;margin-bottom:14px}
 .iv-field label{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${T.dim}}
-.iv-field select,.iv-field input{background:${T.bgSubtle};border:1px solid ${T.border};border-radius:8px;padding:10px 12px;font-family:'DM Sans',sans-serif;font-size:14px;color:${T.white};outline:none}
+.iv-field select,.iv-field input{background:${T.bgSubtle};border:1px solid ${T.border};border-radius:8px;padding:10px 12px;font-family:var(--font-jakarta),sans-serif;font-size:14px;color:${T.white};outline:none}
 .iv-field select:focus,.iv-field input:focus{border-color:${T.teal}}
 .iv-field-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
 .iv-modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:8px}

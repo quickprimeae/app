@@ -6,14 +6,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 
-const T = {
-  bg: '#0a0f0d', bgCard: '#111815', bgHover: '#161e1a', bgSubtle: '#0f1712',
-  border: '#1e2b24', borderMid: '#243329', teal: '#0F6E56', tealMid: '#1D9E75',
-  tealBright: '#25D09A', tealText: '#5DCAA5', tealFaint: '#0d1f18',
-  green: '#22c55e', greenBg: '#0d2018', amber: '#f59e0b', amberBg: '#1f1608',
-  red: '#ef4444', redBg: '#1f0d0d', white: '#f0f7f4', whiteMid: '#c8ddd6',
-  dim: '#6b8078', dimMid: '#4a6058',
-}
+import { T } from '@/lib/theme'
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 type HoursRow = { employee_id: string; employee_name: string; employee_number: string; total_hours: number; gross_pay: number; shifts_worked: number; pending_reviews: number; hourly_rate: number; monthly_salary: number | null; shift_type: string | null }
@@ -124,26 +117,26 @@ export default function PayrollClient({ tenantId, opsUserId }: { tenantId: strin
 
 const css = `
 *,*::before,*::after{box-sizing:border-box}
-.py-root{font-family:'DM Sans',sans-serif;background:${T.bg};min-height:100vh;color:${T.white}}
+.py-root{font-family:var(--font-jakarta),sans-serif;background:${T.bg};min-height:100vh;color:${T.white}}
 .py-topbar{background:${T.bgCard};border-bottom:1px solid ${T.border};display:flex;align-items:center;padding:0 28px;height:56px;gap:14px;position:sticky;top:0;z-index:100}
 .py-logo{font-family:'DM Mono',monospace;font-size:13px;color:${T.tealBright};letter-spacing:.06em;text-decoration:none}
 .py-divider{width:1px;height:20px;background:${T.border}}
-.py-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:600;color:${T.whiteMid}}
+.py-title{font-family:var(--font-jakarta),sans-serif;font-size:15px;font-weight:600;color:${T.whiteMid}}
 .py-right{margin-left:auto;display:flex;align-items:center;gap:10px}
-.py-select{background:${T.bgSubtle};border:1px solid ${T.border};border-radius:8px;padding:7px 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:${T.white};outline:none;cursor:pointer}
-.py-btn{padding:7px 14px;border-radius:8px;border:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none}
+.py-select{background:${T.bgSubtle};border:1px solid ${T.border};border-radius:8px;padding:7px 12px;font-family:var(--font-jakarta),sans-serif;font-size:13px;color:${T.white};outline:none;cursor:pointer}
+.py-btn{padding:7px 14px;border-radius:8px;border:none;font-family:var(--font-jakarta),sans-serif;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none}
 .py-btn.ghost{background:${T.bgSubtle};color:${T.whiteMid};border:1px solid ${T.border}}.py-btn.ghost:hover{border-color:${T.teal};color:${T.tealBright}}
-.py-btn.primary{background:${T.tealMid};color:#fff}.py-btn.primary:hover{opacity:.9}
+.py-btn.primary{background:${T.tealMid};color:#1B2B2B}.py-btn.primary:hover{opacity:.9}
 .py-btn.primary:disabled{opacity:.45;cursor:not-allowed}
 .py-main{padding:28px 32px}
 .py-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
 .py-stat{background:${T.bgCard};border:1px solid ${T.border};border-radius:10px;padding:16px 18px}
-.py-stat-val{font-family:'Syne',sans-serif;font-size:24px;font-weight:700;line-height:1;margin-bottom:4px}
+.py-stat-val{font-family:var(--font-jakarta),sans-serif;font-size:24px;font-weight:700;line-height:1;margin-bottom:4px}
 .py-stat-label{font-size:11px;color:${T.dim};font-weight:500}
 .py-banner{padding:12px 16px;border-radius:10px;font-size:13px;margin-bottom:16px}
-.py-banner.amber{background:${T.amberBg};border:1px solid #5a3d0a;color:${T.amber}}
+.py-banner.amber{background:${T.amberBg};border:1px solid #FCD34D;color:${T.amber}}
 .py-banner.teal{background:${T.tealFaint};border:1px solid ${T.teal};color:${T.tealBright}}
-.py-banner.red{background:${T.redBg};border:1px solid #3d1a1a;color:${T.red}}
+.py-banner.red{background:${T.redBg};border:1px solid #FCA5A5;color:${T.red}}
 .py-table-wrap{background:${T.bgCard};border:1px solid ${T.border};border-radius:12px;overflow:hidden}
 .py-table{width:100%;border-collapse:collapse;font-size:13px}
 .py-table thead tr{background:${T.bgSubtle}}
@@ -154,5 +147,5 @@ const css = `
 .py-table td{padding:12px 16px;color:${T.whiteMid};vertical-align:middle}
 .py-sub{font-family:'DM Mono',monospace;font-size:10px;color:${T.dim}}
 .py-mono{font-family:'DM Mono',monospace;font-size:12px;color:${T.whiteMid}}
-.py-flag{font-size:10px;font-weight:700;color:${T.amber};background:${T.amberBg};border:1px solid #5a3d0a;padding:2px 8px;border-radius:10px;text-transform:uppercase}
+.py-flag{font-size:10px;font-weight:700;color:${T.amber};background:${T.amberBg};border:1px solid #FCD34D;padding:2px 8px;border-radius:10px;text-transform:uppercase}
 `

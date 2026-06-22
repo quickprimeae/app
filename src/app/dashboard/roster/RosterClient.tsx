@@ -18,14 +18,7 @@ export type RosterShift = {
   reassignedTo: string | null
 }
 
-const T = {
-  bg: '#0a0f0d', bgCard: '#111815', bgHover: '#161e1a', bgSubtle: '#0f1712',
-  border: '#1e2b24', borderMid: '#243329', tealDark: '#085041', teal: '#0F6E56',
-  tealMid: '#1D9E75', tealBright: '#25D09A', tealText: '#5DCAA5', tealFaint: '#0d1f18',
-  green: '#22c55e', greenBg: '#0d2018', amber: '#f59e0b', amberBg: '#1f1608',
-  blue: '#38bdf8', blueBg: '#0a1a24', red: '#ef4444', redBg: '#1f0d0d',
-  white: '#f0f7f4', whiteMid: '#c8ddd6', dim: '#6b8078', dimMid: '#4a6058',
-}
+import { T } from '@/lib/theme'
 
 function dayHeader(d: string) {
   const dt = new Date(`${d}T00:00:00Z`)
@@ -388,9 +381,9 @@ function cellTitle(s: RosterShift | undefined, names: Map<string, string>): stri
 
 const css = `
 *,*::before,*::after{box-sizing:border-box}
-.rs-root{font-family:'DM Sans',sans-serif;background:${T.bg};min-height:100vh;color:${T.white}}
+.rs-root{font-family:var(--font-jakarta),sans-serif;background:${T.bg};min-height:100vh;color:${T.white}}
 .rs-topbar{background:${T.bgCard};border-bottom:1px solid ${T.border};display:flex;align-items:center;padding:0 24px;height:56px;gap:18px;position:sticky;top:0;z-index:100;flex-wrap:wrap}
-.rs-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:600;color:${T.whiteMid}}
+.rs-title{font-family:var(--font-jakarta),sans-serif;font-size:15px;font-weight:600;color:${T.whiteMid}}
 .rs-week-nav{display:flex;align-items:center;gap:8px}
 .rs-nav-btn{width:30px;height:30px;border-radius:7px;border:1px solid ${T.border};background:${T.bgSubtle};color:${T.whiteMid};font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;text-decoration:none}
 .rs-nav-btn:hover{border-color:${T.teal};color:${T.tealBright}}
@@ -398,21 +391,21 @@ const css = `
 .rs-today-btn{font-size:11px;font-weight:600;color:${T.tealText};text-decoration:none;border:1px solid ${T.border};border-radius:7px;padding:6px 10px}
 .rs-today-btn:hover{border-color:${T.teal};color:${T.tealBright}}
 .rs-right{margin-left:auto;display:flex;align-items:center;gap:10px}
-.rs-select{background:${T.bgSubtle};border:1px solid ${T.border};border-radius:8px;padding:8px 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:${T.white};outline:none;cursor:pointer}
+.rs-select{background:${T.bgSubtle};border:1px solid ${T.border};border-radius:8px;padding:8px 12px;font-family:var(--font-jakarta),sans-serif;font-size:13px;color:${T.white};outline:none;cursor:pointer}
 .rs-select:focus{border-color:${T.teal}}
-.rs-btn{padding:8px 14px;border-radius:8px;border:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
-.rs-btn.primary{background:${T.tealMid};color:#fff}.rs-btn.primary:hover{opacity:.9}
+.rs-btn{padding:8px 14px;border-radius:8px;border:none;font-family:var(--font-jakarta),sans-serif;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.rs-btn.primary{background:${T.tealMid};color:#1B2B2B}.rs-btn.primary:hover{opacity:.9}
 .rs-btn.ghost{background:${T.bgSubtle};color:${T.whiteMid};border:1px solid ${T.border}}.rs-btn.ghost:hover{border-color:${T.teal};color:${T.tealBright}}
-.rs-btn.danger{background:${T.redBg};color:${T.red};border:1px solid #3d1a1a}
-.rs-btn.cover{background:${T.blueBg};color:${T.blue};border:1px solid #15384a}.rs-btn.cover:hover{border-color:${T.blue}}
+.rs-btn.danger{background:${T.redBg};color:${T.red};border:1px solid #FCA5A5}
+.rs-btn.cover{background:${T.blueBg};color:${T.blue};border:1px solid #BAE6FD}.rs-btn.cover:hover{border-color:${T.blue}}
 .rs-btn:disabled{opacity:.5;cursor:not-allowed}
-.rs-cover-select{background:${T.bgSubtle};border:1px solid ${T.border};border-radius:8px;padding:10px 12px;font-family:'DM Sans',sans-serif;font-size:14px;color:${T.white};outline:none;cursor:pointer;width:100%}
+.rs-cover-select{background:${T.bgSubtle};border:1px solid ${T.border};border-radius:8px;padding:10px 12px;font-family:var(--font-jakarta),sans-serif;font-size:14px;color:${T.white};outline:none;cursor:pointer;width:100%}
 .rs-cover-select:focus{border-color:${T.teal}}
 .rs-main{padding:22px 24px}
 .rs-empty{text-align:center;padding:70px 0;color:${T.dim};font-size:14px}
-.rs-error{text-align:center;padding:64px 20px;max-width:560px;margin:0 auto;background:${T.redBg};border:1px solid #3d1a1a;border-radius:14px}
+.rs-error{text-align:center;padding:64px 20px;max-width:560px;margin:0 auto;background:${T.redBg};border:1px solid #FCA5A5;border-radius:14px}
 .rs-error-icon{font-size:34px;margin-bottom:10px}
-.rs-error-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:600;color:${T.red};margin-bottom:8px}
+.rs-error-title{font-family:var(--font-jakarta),sans-serif;font-size:18px;font-weight:600;color:${T.red};margin-bottom:8px}
 .rs-error-msg{font-family:'DM Mono',monospace;font-size:12px;color:${T.whiteMid};background:${T.bgSubtle};border:1px solid ${T.border};border-radius:8px;padding:10px 12px;margin:0 auto 12px;max-width:480px;word-break:break-word}
 .rs-error-hint{font-size:12px;color:${T.dim};line-height:1.5}
 .rs-grid-wrap{background:${T.bgCard};border:1px solid ${T.border};border-radius:12px;overflow:auto;max-height:calc(100vh - 160px)}
@@ -432,32 +425,32 @@ const css = `
 .rs-cell.off{color:${T.dimMid}}
 .rs-cell.off:hover{background:${T.bgHover};border-color:${T.borderMid};color:${T.tealText}}
 .rs-off-plus{font-size:16px;opacity:.4}
-.rs-cell.sch{background:${T.greenBg};color:${T.tealText};border-color:#1a3a28}
+.rs-cell.sch{background:${T.greenBg};color:${T.tealText};border-color:#9DEEE6}
 .rs-cell.sch:hover{border-color:${T.tealMid}}
-.rs-cell.cover{background:${T.blueBg};color:${T.blue};border-color:#15384a}
+.rs-cell.cover{background:${T.blueBg};color:${T.blue};border-color:#BAE6FD}
 .rs-cell.cover:hover{border-color:${T.blue}}
 .rs-cell.reassigned{background:${T.bgSubtle};border-color:${T.border}}
-.rs-cell.cancelled{background:${T.redBg};color:${T.red};border-color:#3d1a1a}
-.rs-badge{font-size:8px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;background:${T.blue};color:#04222e;padding:1px 5px;border-radius:8px;font-family:'DM Sans',sans-serif}
+.rs-cell.cancelled{background:${T.redBg};color:${T.red};border-color:#FCA5A5}
+.rs-badge{font-size:8px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;background:${T.blue};color:#0E7490;padding:1px 5px;border-radius:8px;font-family:var(--font-jakarta),sans-serif}
 .rs-strike{text-decoration:line-through;color:${T.dimMid};font-size:11px}
-.rs-cover-to{font-size:9px;color:${T.tealText};font-family:'DM Sans',sans-serif}
-.rs-cell-x{font-size:10px;font-family:'DM Sans',sans-serif;text-transform:uppercase;letter-spacing:.04em}
+.rs-cover-to{font-size:9px;color:${T.tealText};font-family:var(--font-jakarta),sans-serif}
+.rs-cell-x{font-size:10px;font-family:var(--font-jakarta),sans-serif;text-transform:uppercase;letter-spacing:.04em}
 .rs-foot{padding:8px 10px;text-align:center;font-size:12px;font-weight:600;color:${T.tealText};background:${T.bgSubtle};border-top:1px solid ${T.borderMid};position:sticky;bottom:0}
 .rs-foot.rs-emp-col{text-align:left;color:${T.dim};font-size:10px;text-transform:uppercase;letter-spacing:.06em}
 .rs-foot.today{background:${T.tealFaint}}
 .rs-legend{display:flex;gap:18px;flex-wrap:wrap;padding:14px 4px 0;font-size:11px;color:${T.dim}}
 .rs-legend span{display:flex;align-items:center;gap:6px}
 .rs-dot{width:10px;height:10px;border-radius:3px;display:inline-block}
-.rs-dot.sch{background:${T.greenBg};border:1px solid #1a3a28}
-.rs-dot.cover{background:${T.blueBg};border:1px solid #15384a}
+.rs-dot.sch{background:${T.greenBg};border:1px solid #9DEEE6}
+.rs-dot.cover{background:${T.blueBg};border:1px solid #BAE6FD}
 .rs-dot.reassigned{background:${T.bgSubtle};border:1px solid ${T.border}}
-.rs-dot.cancelled{background:${T.redBg};border:1px solid #3d1a1a}
+.rs-dot.cancelled{background:${T.redBg};border:1px solid #FCA5A5}
 .rs-dot.off{background:none;border:1px dashed ${T.borderMid}}
 .rs-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:flex;align-items:center;justify-content:center;animation:rsFade .15s ease}
 @keyframes rsFade{from{opacity:0}to{opacity:1}}
 .rs-modal{width:380px;max-width:calc(100vw - 32px);background:${T.bgCard};border:1px solid ${T.borderMid};border-radius:14px;overflow:hidden}
 .rs-modal-head{display:flex;align-items:flex-start;justify-content:space-between;padding:18px 20px 14px;border-bottom:1px solid ${T.border}}
-.rs-modal-title{font-family:'Syne',sans-serif;font-size:17px;font-weight:600;color:${T.white}}
+.rs-modal-title{font-family:var(--font-jakarta),sans-serif;font-size:17px;font-weight:600;color:${T.white}}
 .rs-modal-sub{font-size:12px;color:${T.dim};margin-top:3px}
 .rs-close{background:none;border:1px solid ${T.border};color:${T.dim};width:28px;height:28px;border-radius:6px;cursor:pointer;font-size:14px}
 .rs-close:hover{color:${T.white};border-color:${T.borderMid}}
@@ -467,6 +460,6 @@ const css = `
 .rs-field span{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:${T.dim}}
 .rs-field input{background:${T.bgSubtle};border:1px solid ${T.border};border-radius:8px;padding:10px 12px;font-family:'DM Mono',monospace;font-size:14px;color:${T.white};outline:none;color-scheme:dark}
 .rs-field input:focus{border-color:${T.teal}}
-.rs-modal-err{margin:0 20px;padding:9px 12px;background:${T.redBg};border:1px solid #3d1a1a;border-radius:8px;font-size:12px;color:${T.red}}
+.rs-modal-err{margin:0 20px;padding:9px 12px;background:${T.redBg};border:1px solid #FCA5A5;border-radius:8px;font-size:12px;color:${T.red}}
 .rs-modal-actions{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 20px;gap:8px}
 `

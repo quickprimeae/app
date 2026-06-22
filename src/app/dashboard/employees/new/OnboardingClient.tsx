@@ -10,12 +10,7 @@ import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { normalizePhone } from '@/lib/phone'
 
-const T = {
-  tealDark: '#085041', teal: '#0F6E56', tealMid: '#1D9E75', tealLight: '#E1F5EE',
-  tealBorder: '#9FE1CB', tealText: '#5DCAA5', ink: '#0f1a15', inkMid: '#374940',
-  inkLight: '#6b7c75', surface: '#f5f8f6', white: '#ffffff', border: '#e0ebe6',
-  amber: '#854F0B', amberLight: '#FAEEDA', red: '#A32D2D', redLight: '#FCEBEB',
-}
+import { LT as T } from '@/lib/theme'
 
 type Loc = { id: string; name: string }
 type Sup = { id: string; name: string | null }
@@ -289,11 +284,11 @@ function Field({ label, required, hint, children }: { label: string; required?: 
 
 const css = `
 *,*::before,*::after{box-sizing:border-box}
-.ob-root{font-family:'DM Sans',sans-serif;background:${T.surface};min-height:100vh;color:${T.ink}}
+.ob-root{font-family:var(--font-jakarta),sans-serif;background:${T.surface};min-height:100vh;color:${T.ink}}
 .ob-layout{display:grid;grid-template-columns:280px 1fr;min-height:100vh}
 .ob-sidebar{background:${T.tealDark};padding:36px 28px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
 .ob-logo{font-family:'DM Mono',monospace;font-size:13px;color:${T.tealText};letter-spacing:.06em;margin-bottom:40px;text-decoration:none}
-.ob-sidebar-title{font-family:'Fraunces',serif;font-size:22px;font-weight:300;color:#fff;line-height:1.3;margin-bottom:8px}
+.ob-sidebar-title{font-family:var(--font-jakarta),serif;font-size:22px;font-weight:300;color:#fff;line-height:1.3;margin-bottom:8px}
 .ob-sidebar-sub{font-size:12px;color:${T.tealText};line-height:1.6;margin-bottom:40px}
 .ob-steps{display:flex;flex-direction:column;gap:4px;flex:1}
 .ob-step-item{display:flex;align-items:center;gap:14px;padding:12px 14px;border-radius:10px;transition:background .15s}
@@ -301,7 +296,7 @@ const css = `
 .ob-step-item.done{opacity:.7}
 .ob-step-item.upcoming{opacity:.35}
 .ob-step-num{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0}
-.ob-step-item.done .ob-step-num{background:${T.tealMid};color:#fff}
+.ob-step-item.done .ob-step-num{background:${T.tealMid};color:#1B2B2B}
 .ob-step-item.active .ob-step-num{background:#fff;color:${T.tealDark}}
 .ob-step-item.upcoming .ob-step-num{background:rgba(255,255,255,.15);color:rgba(255,255,255,.5)}
 .ob-step-name{font-size:13px;font-weight:500;color:#fff;line-height:1.2}
@@ -310,7 +305,7 @@ const css = `
 .ob-main{padding:48px 60px;max-width:820px}
 .ob-step-header{margin-bottom:32px}
 .ob-step-tag{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:${T.tealMid};margin-bottom:8px}
-.ob-step-h{font-family:'Fraunces',serif;font-size:32px;font-weight:300;color:${T.ink};line-height:1.15}
+.ob-step-h{font-family:var(--font-jakarta),serif;font-size:32px;font-weight:300;color:${T.ink};line-height:1.15}
 .ob-form{display:flex;flex-direction:column;gap:0}
 .ob-row{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px}
 .ob-row.single{grid-template-columns:1fr}
@@ -318,7 +313,7 @@ const css = `
 .ob-field{display:flex;flex-direction:column;gap:6px}
 .ob-label{font-size:12px;font-weight:600;letter-spacing:.04em;color:${T.inkMid};text-transform:uppercase}
 .ob-label span{color:${T.tealMid};margin-left:2px}
-.ob-input,.ob-select{padding:13px 16px;border-radius:10px;border:1.5px solid ${T.border};background:${T.white};font-family:'DM Sans',sans-serif;font-size:15px;color:${T.ink};outline:none;transition:border-color .15s,box-shadow .15s;width:100%}
+.ob-input,.ob-select{padding:13px 16px;border-radius:10px;border:1.5px solid ${T.border};background:${T.white};font-family:var(--font-jakarta),sans-serif;font-size:15px;color:${T.ink};outline:none;transition:border-color .15s,box-shadow .15s;width:100%}
 .ob-input:focus,.ob-select:focus{border-color:${T.tealMid};box-shadow:0 0 0 3px ${T.tealLight}}
 .ob-select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7c75' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:40px}
 .ob-hint{font-size:11px;color:${T.inkLight};margin-top:2px}
@@ -336,7 +331,7 @@ const css = `
 .ob-review-grid{display:grid;grid-template-columns:140px 1fr;gap:24px;align-items:start;margin-bottom:28px}
 .ob-review-photo{width:140px;height:140px;border-radius:12px;background:${T.tealLight};display:flex;align-items:center;justify-content:center;font-size:48px;border:2px solid ${T.tealBorder};overflow:hidden}
 .ob-review-photo img{width:100%;height:100%;object-fit:cover}
-.ob-review-name{font-family:'Fraunces',serif;font-size:26px;font-weight:400;color:${T.ink};margin-bottom:10px}
+.ob-review-name{font-family:var(--font-jakarta),serif;font-size:26px;font-weight:400;color:${T.ink};margin-bottom:10px}
 .ob-badges{display:flex;gap:8px;flex-wrap:wrap}
 .ob-badge{font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;background:${T.tealLight};color:${T.teal};border:1px solid ${T.tealBorder}}
 .ob-review-table{width:100%;border-collapse:collapse;margin-bottom:24px}
@@ -352,9 +347,9 @@ const css = `
 .ob-info-box.amber .ob-info-box-text{color:${T.amber}}
 .ob-info-box-text strong{font-weight:600}
 .ob-success{display:flex;flex-direction:column;align-items:center;text-align:center;padding:60px 40px}
-.ob-success-ring{width:120px;height:120px;border-radius:50%;background:${T.tealMid};display:flex;align-items:center;justify-content:center;font-size:56px;color:#fff;margin-bottom:32px;animation:popIn .35s cubic-bezier(.175,.885,.32,1.275)}
+.ob-success-ring{width:120px;height:120px;border-radius:50%;background:${T.tealMid};display:flex;align-items:center;justify-content:center;font-size:56px;color:#1B2B2B;margin-bottom:32px;animation:popIn .35s cubic-bezier(.175,.885,.32,1.275)}
 @keyframes popIn{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
-.ob-success-h{font-family:'Fraunces',serif;font-size:32px;font-weight:300;color:${T.ink};margin-bottom:10px}
+.ob-success-h{font-family:var(--font-jakarta),serif;font-size:32px;font-weight:300;color:${T.ink};margin-bottom:10px}
 .ob-success-h em{font-style:italic;color:${T.tealMid}}
 .ob-success-sub{font-size:15px;color:${T.inkLight};line-height:1.6;max-width:440px;margin-bottom:40px}
 .ob-success-details{background:${T.white};border:1px solid ${T.border};border-radius:14px;padding:20px 28px;display:flex;gap:40px;margin-bottom:32px}
@@ -362,8 +357,8 @@ const css = `
 .ob-success-stat-val{font-family:'DM Mono',monospace;font-size:22px;font-weight:500;color:${T.tealDark};margin-bottom:4px}
 .ob-success-stat-label{font-size:11px;color:${T.inkLight};text-transform:uppercase;letter-spacing:.06em;font-weight:600}
 .ob-actions{display:flex;align-items:center;gap:14px;padding-top:32px;border-top:1px solid ${T.border};margin-top:12px}
-.ob-btn{padding:13px 28px;border-radius:10px;border:none;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:600;cursor:pointer;transition:opacity .1s,background .15s;display:flex;align-items:center;gap:8px;text-decoration:none}
-.ob-btn.primary{background:${T.tealMid};color:#fff}.ob-btn.primary:hover{background:${T.teal}}
+.ob-btn{padding:13px 28px;border-radius:10px;border:none;font-family:var(--font-jakarta),sans-serif;font-size:15px;font-weight:600;cursor:pointer;transition:opacity .1s,background .15s;display:flex;align-items:center;gap:8px;text-decoration:none}
+.ob-btn.primary{background:${T.tealMid};color:#1B2B2B}.ob-btn.primary:hover{background:${T.teal}}
 .ob-btn.secondary{background:${T.white};color:${T.inkMid};border:1.5px solid ${T.border}}.ob-btn.secondary:hover{border-color:${T.tealBorder};color:${T.teal}}
 .ob-btn:disabled{opacity:.4;cursor:not-allowed}
 .ob-btn.ghost{background:none;color:${T.inkLight}}.ob-btn.ghost:hover{color:${T.red}}

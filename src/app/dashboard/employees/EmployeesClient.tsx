@@ -21,14 +21,7 @@ const BADGE_CLASS: Record<DerivedStatus, string> = {
   deactivated: 'deactivated',
 }
 
-const T = {
-  bg: '#0a0f0d', bgCard: '#111815', bgHover: '#161e1a', bgSubtle: '#0f1712',
-  border: '#1e2b24', borderMid: '#243329', tealDark: '#085041', teal: '#0F6E56',
-  tealMid: '#1D9E75', tealBright: '#25D09A', tealText: '#5DCAA5', tealFaint: '#0d1f18',
-  green: '#22c55e', greenBg: '#0d2018', amber: '#f59e0b', amberBg: '#1f1608',
-  red: '#ef4444', redBg: '#1f0d0d', white: '#f0f7f4', whiteMid: '#c8ddd6',
-  dim: '#6b8078', dimMid: '#4a6058',
-}
+import { T } from '@/lib/theme'
 const PAGE_SIZE = 12
 
 function fmt(iso: string | null) {
@@ -476,7 +469,7 @@ export default function EmployeesClient({ initial, locations }: { initial: Emplo
                     <div className="ep-activity-row"><div className="ep-activity-dot" style={{ background: T.red }} /><div className="ep-activity-label" style={{ color: T.red }}>No clock-in recorded</div><div className="ep-activity-time">{selectedEmp.shiftHours}</div></div>
                   )}
                   {selectedEmp.flagged && (
-                    <div className="ep-activity-row" style={{ borderColor: '#5a3d0a' }}>
+                    <div className="ep-activity-row" style={{ borderColor: '#FCD34D' }}>
                       <div className="ep-activity-dot" style={{ background: T.amber }} />
                       <div className="ep-activity-label" style={{ color: T.amber }}>Face match flagged — manual review needed</div>
                       <Link href={`/dashboard/alerts?flag=${selectedEmp.flagAlertId ?? ''}`} className="ep-review-link">Review →</Link>
@@ -501,7 +494,7 @@ export default function EmployeesClient({ initial, locations }: { initial: Emplo
                   )}
                   {/* Face-match readiness: a photo without a descriptor can't be matched. */}
                   {selectedEmp.hasPhoto && (
-                    <div className="ep-face-status" style={{ color: selectedEmp.hasDescriptor ? T.tealBright : T.amber, borderColor: selectedEmp.hasDescriptor ? '#1a4030' : '#5a3d0a' }}>
+                    <div className="ep-face-status" style={{ color: selectedEmp.hasDescriptor ? T.tealBright : T.amber, borderColor: selectedEmp.hasDescriptor ? '#9DEEE6' : '#FCD34D' }}>
                       {selectedEmp.hasDescriptor ? '✓ Face descriptor stored — match ready' : '⚠ No face descriptor — match disabled. Replace with a clear front-facing photo.'}
                     </div>
                   )}
@@ -549,18 +542,18 @@ export default function EmployeesClient({ initial, locations }: { initial: Emplo
 
 const css = `
 *,*::before,*::after{box-sizing:border-box}
-.ep-root{font-family:'DM Sans',sans-serif;background:${T.bg};min-height:100vh;color:${T.white};display:flex;flex-direction:column}
+.ep-root{font-family:var(--font-jakarta),sans-serif;background:${T.bg};min-height:100vh;color:${T.white};display:flex;flex-direction:column}
 .ep-topbar{background:${T.bgCard};border-bottom:1px solid ${T.border};display:flex;align-items:center;padding:0 28px;height:56px;gap:16px;position:sticky;top:0;z-index:100}
 .ep-logo{font-family:'DM Mono',monospace;font-size:13px;color:${T.tealBright};letter-spacing:.06em;text-decoration:none}
 .ep-divider{width:1px;height:20px;background:${T.border}}
-.ep-topbar-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:600;color:${T.whiteMid}}
+.ep-topbar-title{font-family:var(--font-jakarta),sans-serif;font-size:15px;font-weight:600;color:${T.whiteMid}}
 .ep-topbar-right{margin-left:auto;display:flex;align-items:center;gap:12px}
 .ep-search{display:flex;align-items:center;gap:8px;background:${T.bgSubtle};border:1px solid ${T.border};border-radius:8px;padding:7px 12px;width:240px;transition:border-color .15s}
 .ep-search:focus-within{border-color:${T.teal}}
-.ep-search input{background:none;border:none;outline:none;font-family:'DM Sans',sans-serif;font-size:13px;color:${T.white};width:100%}
+.ep-search input{background:none;border:none;outline:none;font-family:var(--font-jakarta),sans-serif;font-size:13px;color:${T.white};width:100%}
 .ep-search input::placeholder{color:${T.dimMid}}
-.ep-btn{padding:8px 16px;border-radius:8px;border:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;transition:opacity .12s}
-.ep-btn.primary{background:${T.tealMid};color:#fff}.ep-btn.primary:hover{opacity:.85}
+.ep-btn{padding:8px 16px;border-radius:8px;border:none;font-family:var(--font-jakarta),sans-serif;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;transition:opacity .12s}
+.ep-btn.primary{background:${T.tealMid};color:#1B2B2B}.ep-btn.primary:hover{opacity:.85}
 .ep-btn.ghost{background:${T.bgSubtle};color:${T.whiteMid};border:1px solid ${T.border}}.ep-btn.ghost:hover{border-color:${T.teal};color:${T.tealBright}}
 .ep-body{display:flex;flex:1;overflow:hidden}
 .ep-sidebar-filters{width:220px;border-right:1px solid ${T.border};background:${T.bgCard};padding:20px 16px;flex-shrink:0;overflow-y:auto}
@@ -575,7 +568,7 @@ const css = `
 .ep-filter-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
 .ep-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
 .ep-stat{background:${T.bgCard};border:1px solid ${T.border};border-radius:10px;padding:14px 18px}
-.ep-stat-val{font-family:'Syne',sans-serif;font-size:26px;font-weight:700;line-height:1;margin-bottom:4px}
+.ep-stat-val{font-family:var(--font-jakarta),sans-serif;font-size:26px;font-weight:700;line-height:1;margin-bottom:4px}
 .ep-stat-label{font-size:11px;color:${T.dim};font-weight:500}
 .ep-table-wrap{background:${T.bgCard};border:1px solid ${T.border};border-radius:12px;overflow:hidden}
 .ep-table{width:100%;border-collapse:collapse;font-size:13px}
@@ -592,26 +585,26 @@ const css = `
 .ep-emp-name{font-weight:500;color:${T.white};font-size:13px}
 .ep-emp-id{font-family:'DM Mono',monospace;font-size:10px;color:${T.dim}}
 .ep-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;letter-spacing:.03em;text-transform:uppercase;white-space:nowrap}
-.ep-badge.active{background:${T.greenBg};color:${T.green};border:1px solid #1a4030}
-.ep-badge.absent{background:${T.redBg};color:${T.red};border:1px solid #3d1a1a}
-.ep-badge.late{background:${T.amberBg};color:${T.amber};border:1px solid #5a3d0a}
-.ep-badge.flagged{background:${T.amberBg};color:${T.amber};border:1px solid #5a3d0a}
+.ep-badge.active{background:${T.greenBg};color:${T.green};border:1px solid #9DEEE6}
+.ep-badge.absent{background:${T.redBg};color:${T.red};border:1px solid #FCA5A5}
+.ep-badge.late{background:${T.amberBg};color:${T.amber};border:1px solid #FCD34D}
+.ep-badge.flagged{background:${T.amberBg};color:${T.amber};border:1px solid #FCD34D}
 .ep-badge.ready{background:${T.bgSubtle};color:${T.dimMid};border:1px solid ${T.border}}
 .ep-badge.awaiting{background:${T.bgSubtle};color:${T.dim};border:1px dashed ${T.borderMid}}
 .ep-badge.deactivated{background:${T.bgSubtle};color:${T.dimMid};border:1px solid ${T.border}}
 .ep-badge.nophoto{background:${T.bgSubtle};color:${T.dim};border:1px solid ${T.border}}
 .ep-mono{font-family:'DM Mono',monospace;font-size:12px;color:${T.dim}}
 .ep-location-text{font-size:12px;color:${T.whiteMid};max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ep-loc-select{max-width:170px;font-family:'DM Sans',sans-serif;font-size:12px;color:${T.whiteMid};background:${T.bgSubtle};border:1px solid ${T.border};border-radius:7px;padding:6px 8px;cursor:pointer;outline:none}
+.ep-loc-select{max-width:170px;font-family:var(--font-jakarta),sans-serif;font-size:12px;color:${T.whiteMid};background:${T.bgSubtle};border:1px solid ${T.border};border-radius:7px;padding:6px 8px;cursor:pointer;outline:none}
 .ep-loc-select:hover{border-color:${T.teal}}
 .ep-loc-select:focus{border-color:${T.tealMid}}
 .ep-loc-select:disabled{opacity:.5;cursor:not-allowed}
-.ep-loc-select.unassigned{color:${T.amber};border-color:#5a3d0a;background:${T.amberBg};font-weight:600}
+.ep-loc-select.unassigned{color:${T.amber};border-color:#FCD34D;background:${T.amberBg};font-weight:600}
 .ep-pagination{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-top:1px solid ${T.border};font-size:12px;color:${T.dim}}
 .ep-page-btns{display:flex;gap:4px}
 .ep-page-btn{width:28px;height:28px;border-radius:6px;border:1px solid ${T.border};background:none;color:${T.dim};font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s}
 .ep-page-btn:hover{border-color:${T.teal};color:${T.tealBright}}
-.ep-page-btn.active{background:${T.tealMid};color:#fff;border-color:${T.tealMid}}
+.ep-page-btn.active{background:${T.tealMid};color:#1B2B2B;border-color:${T.tealMid}}
 .ep-page-btn:disabled{opacity:.4;cursor:not-allowed}
 .ep-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:flex;justify-content:flex-end;animation:fadeO .2s ease}
 @keyframes fadeO{from{opacity:0}to{opacity:1}}
@@ -620,7 +613,7 @@ const css = `
 .ep-drawer-header{padding:22px 24px 18px;border-bottom:1px solid ${T.border}}
 .ep-drawer-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px}
 .ep-drawer-avatar{width:56px;height:56px;border-radius:50%;background:${T.tealDark};display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:600;color:${T.tealText};border:2px solid ${T.tealMid}}
-.ep-drawer-name{font-family:'Syne',sans-serif;font-size:20px;font-weight:600;color:${T.white};margin-bottom:3px}
+.ep-drawer-name{font-family:var(--font-jakarta),sans-serif;font-size:20px;font-weight:600;color:${T.white};margin-bottom:3px}
 .ep-drawer-id{font-family:'DM Mono',monospace;font-size:12px;color:${T.dim}}
 .ep-close{background:none;border:1px solid ${T.border};color:${T.dim};font-size:16px;width:30px;height:30px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s}
 .ep-close:hover{color:${T.white};border-color:${T.borderMid}}
@@ -637,7 +630,7 @@ const css = `
 .ep-activity-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .ep-activity-label{color:${T.whiteMid};flex:1}
 .ep-activity-time{font-family:'DM Mono',monospace;color:${T.dim};font-size:11px}
-.ep-review-link{font-size:11px;font-weight:700;color:${T.amber};text-decoration:none;border:1px solid #5a3d0a;border-radius:6px;padding:4px 8px;white-space:nowrap}
+.ep-review-link{font-size:11px;font-weight:700;color:${T.amber};text-decoration:none;border:1px solid #FCD34D;border-radius:6px;padding:4px 8px;white-space:nowrap}
 .ep-review-link:hover{background:${T.amberBg}}
 .ep-photo-box{width:100%;height:140px;border-radius:10px;background:${T.bgSubtle};border:2px dashed ${T.border};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;margin-bottom:12px;cursor:pointer;transition:border-color .15s}
 .ep-photo-box:hover{border-color:${T.tealMid}}
@@ -646,16 +639,16 @@ const css = `
 .ep-face-status{font-size:11px;font-weight:600;padding:8px 10px;border-radius:8px;border:1px solid ${T.border};background:${T.bgSubtle};line-height:1.4;margin-bottom:8px}
 .ep-face-msg{font-size:12px;line-height:1.5;padding:9px 12px;border-radius:8px;margin-top:4px}
 .ep-face-msg.info{background:${T.bgSubtle};color:${T.whiteMid};border:1px solid ${T.border}}
-.ep-face-msg.ok{background:${T.greenBg};color:${T.tealBright};border:1px solid #1a4030}
-.ep-face-msg.warn{background:${T.amberBg};color:${T.amber};border:1px solid #5a3d0a}
-.ep-face-msg.err{background:${T.redBg};color:${T.red};border:1px solid #3d1a1a}
-.ep-action-btn{width:100%;padding:11px;border-radius:8px;border:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:8px;transition:opacity .12s}
+.ep-face-msg.ok{background:${T.greenBg};color:${T.tealBright};border:1px solid #9DEEE6}
+.ep-face-msg.warn{background:${T.amberBg};color:${T.amber};border:1px solid #FCD34D}
+.ep-face-msg.err{background:${T.redBg};color:${T.red};border:1px solid #FCA5A5}
+.ep-action-btn{width:100%;padding:11px;border-radius:8px;border:none;font-family:var(--font-jakarta),sans-serif;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:8px;transition:opacity .12s}
 .ep-action-btn:hover{opacity:.85}
 .ep-action-btn:disabled{opacity:.5;cursor:not-allowed}
 .ep-action-btn.secondary{background:${T.bgSubtle};color:${T.whiteMid};border:1px solid ${T.border}}
-.ep-action-btn.primary{background:${T.tealMid};color:#fff}
-.ep-action-btn.danger{background:${T.redBg};color:${T.red};border:1px solid #3d1a1a}
-.ep-invite-err{padding:9px 12px;border-radius:8px;font-size:12px;margin-bottom:10px;background:${T.redBg};border:1px solid #3d1a1a;color:${T.red}}
+.ep-action-btn.primary{background:${T.tealMid};color:#1B2B2B}
+.ep-action-btn.danger{background:${T.redBg};color:${T.red};border:1px solid #FCA5A5}
+.ep-invite-err{padding:9px 12px;border-radius:8px;font-size:12px;margin-bottom:10px;background:${T.redBg};border:1px solid #FCA5A5;color:${T.red}}
 .ep-invite-row{display:flex;align-items:center;gap:6px;margin-bottom:8px}
 .ep-invite-input{flex:1;min-width:0;background:${T.bgSubtle};border:1px solid ${T.border};border-radius:7px;padding:9px 10px;font-family:'DM Mono',monospace;font-size:11px;color:${T.tealText};outline:none}
 .ep-invite-input:focus{border-color:${T.teal}}

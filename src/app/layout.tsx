@@ -1,6 +1,18 @@
 // src/app/layout.tsx
 import type { Metadata, Viewport } from 'next'
+import { Plus_Jakarta_Sans } from 'next/font/google'
 import './globals.css'
+
+// next/font hashes the family name, so it MUST be referenced via its CSS
+// variable (--font-jakarta) — which every component's CSS already uses. DM Mono
+// stays on the trimmed Google <link> below because components reference the
+// literal 'DM Mono' name for tabular figures (clock/IDs).
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '800'],
+  variable: '--font-jakarta',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
   title: 'OpsPro',
@@ -24,12 +36,12 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className={jakarta.variable}>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,400;1,300&display=swap"
+          href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap"
           rel="stylesheet"
         />
         <link

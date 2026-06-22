@@ -7,14 +7,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { phoneToWaDigits } from '@/lib/phone'
 
-const T = {
-  bg: '#0a0f0d', bgCard: '#111815', bgHover: '#161e1a', bgSubtle: '#0f1712',
-  border: '#1e2b24', borderMid: '#243329', teal: '#0F6E56', tealMid: '#1D9E75',
-  tealBright: '#25D09A', tealText: '#5DCAA5', tealFaint: '#0d1f18',
-  green: '#22c55e', greenBg: '#0d2018', amber: '#f59e0b', amberBg: '#1f1608',
-  red: '#ef4444', redBg: '#1f0d0d', white: '#f0f7f4', whiteMid: '#c8ddd6',
-  dim: '#6b8078', dimMid: '#4a6058',
-}
+import { T } from '@/lib/theme'
 
 export type InviteRow = {
   id: string
@@ -228,21 +221,21 @@ export default function InvitesClient({ initial }: { initial: InviteRow[] }) {
 
 const css = `
 *,*::before,*::after{box-sizing:border-box}
-.iv-root{font-family:'DM Sans',sans-serif;background:${T.bg};min-height:100vh;color:${T.white}}
+.iv-root{font-family:var(--font-jakarta),sans-serif;background:${T.bg};min-height:100vh;color:${T.white}}
 .iv-topbar{background:${T.bgCard};border-bottom:1px solid ${T.border};display:flex;align-items:center;padding:0 28px;height:56px;gap:14px;position:sticky;top:0;z-index:100}
 .iv-logo{font-family:'DM Mono',monospace;font-size:13px;color:${T.tealBright};letter-spacing:.06em;text-decoration:none}
 .iv-divider{width:1px;height:20px;background:${T.border}}
-.iv-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:600;color:${T.whiteMid}}
+.iv-title{font-family:var(--font-jakarta),sans-serif;font-size:15px;font-weight:600;color:${T.whiteMid}}
 .iv-right{margin-left:auto;display:flex;align-items:center;gap:10px}
-.iv-btn{padding:8px 16px;border-radius:8px;border:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
-.iv-btn.primary{background:${T.tealMid};color:#fff}.iv-btn.primary:hover{opacity:.9}.iv-btn.primary:disabled{opacity:.5;cursor:not-allowed}
+.iv-btn{padding:8px 16px;border-radius:8px;border:none;font-family:var(--font-jakarta),sans-serif;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.iv-btn.primary{background:${T.tealMid};color:#1B2B2B}.iv-btn.primary:hover{opacity:.9}.iv-btn.primary:disabled{opacity:.5;cursor:not-allowed}
 .iv-btn.ghost{background:${T.bgSubtle};color:${T.whiteMid};border:1px solid ${T.border}}.iv-btn.ghost:hover{border-color:${T.teal};color:${T.tealBright}}
 .iv-main{padding:28px 32px;max-width:1100px}
 .iv-intro{display:flex;align-items:center;gap:18px;background:${T.bgCard};border:1px solid ${T.border};border-radius:12px;padding:18px 22px;margin-bottom:20px}
-.iv-intro-count{font-family:'Syne',sans-serif;font-size:40px;font-weight:700;color:${T.amber};line-height:1}
+.iv-intro-count{font-family:var(--font-jakarta),sans-serif;font-size:40px;font-weight:700;color:${T.amber};line-height:1}
 .iv-intro-title{font-size:15px;font-weight:600;color:${T.white};margin-bottom:3px}
 .iv-intro-sub{font-size:12px;color:${T.dim};line-height:1.5;max-width:620px}
-.iv-banner{padding:12px 16px;border-radius:10px;font-size:13px;margin-bottom:16px;background:${T.redBg};border:1px solid #3d1a1a;color:${T.red}}
+.iv-banner{padding:12px 16px;border-radius:10px;font-size:13px;margin-bottom:16px;background:${T.redBg};border:1px solid #FCA5A5;color:${T.red}}
 .iv-bulk{background:${T.bgCard};border:1px solid ${T.border};border-radius:12px;padding:16px 18px;margin-bottom:20px}
 .iv-bulk-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:12px}
 .iv-bulk-title{font-size:13px;font-weight:600;color:${T.whiteMid}}
@@ -261,7 +254,7 @@ const css = `
 .iv-sub{font-family:'DM Mono',monospace;font-size:10px;color:${T.dim}}
 .iv-mono{font-family:'DM Mono',monospace;font-size:12px;color:${T.whiteMid}}
 .iv-pill{font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;text-transform:uppercase;letter-spacing:.03em}
-.iv-pill.ok{background:${T.greenBg};color:${T.green};border:1px solid #1a4030}
+.iv-pill.ok{background:${T.greenBg};color:${T.green};border:1px solid #9DEEE6}
 .iv-pill.stale{background:${T.bgSubtle};color:${T.dim};border:1px solid ${T.border}}
 .iv-linkrow{display:flex;align-items:center;gap:6px}
 .iv-linkinput{flex:1;background:${T.bgSubtle};border:1px solid ${T.border};border-radius:7px;padding:8px 10px;font-family:'DM Mono',monospace;font-size:11px;color:${T.tealText};outline:none}

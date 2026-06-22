@@ -94,7 +94,7 @@ const css = `
   justify-content: center;
   padding: 24px;
   background:
-    radial-gradient(1200px 600px at 50% -10%, #0d1f18 0%, var(--bg) 60%);
+    radial-gradient(1200px 600px at 50% -10%, #E6FAF8 0%, var(--bg) 60%);
 }
 .lg-card {
   width: 100%;
@@ -114,7 +114,7 @@ const css = `
   margin-bottom: 28px;
 }
 .lg-title {
-  font-family: 'Syne', sans-serif;
+  font-family: var(--font-jakarta), sans-serif;
   font-size: 24px;
   font-weight: 700;
   color: var(--white);
@@ -134,7 +134,7 @@ const css = `
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 11px 12px;
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--font-jakarta), sans-serif;
   font-size: 14px;
   color: var(--white);
   margin-bottom: 18px;
@@ -153,11 +153,11 @@ const css = `
 }
 .lg-btn {
   background: var(--teal-mid);
-  color: #fff;
+  color: #1B2B2B;
   border: none;
   border-radius: 10px;
   padding: 13px;
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--font-jakarta), sans-serif;
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;

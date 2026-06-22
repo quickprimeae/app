@@ -13,13 +13,7 @@ import Link from 'next/link'
 import Papa from 'papaparse'
 import { parseCell, mondayOfISO, weekDatesISO, addDaysISO } from '@/lib/schedule'
 
-const T = {
-  tealDark: '#085041', teal: '#0F6E56', tealMid: '#1D9E75', tealLight: '#E1F5EE',
-  tealBorder: '#9FE1CB', tealText: '#5DCAA5', ink: '#0f1a15', inkMid: '#374940',
-  inkLight: '#6b7c75', surface: '#f5f8f6', white: '#ffffff', border: '#e0ebe6',
-  amber: '#854F0B', amberBg: '#FAEEDA', amberBorder: '#FAC775', red: '#A32D2D',
-  redBg: '#FCEBEB', redBorder: '#F7C1C1', green: '#085041', greenBg: '#E1F5EE',
-}
+import { LT as T } from '@/lib/theme'
 
 const WD_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const WD_INDEX: Record<string, number> = {
@@ -283,24 +277,24 @@ export default function ScheduleImportClient() {
 
 const css = `
 *,*::before,*::after{box-sizing:border-box}
-.si-root{font-family:'DM Sans',sans-serif;background:${T.surface};min-height:100vh;color:${T.ink}}
+.si-root{font-family:var(--font-jakarta),sans-serif;background:${T.surface};min-height:100vh;color:${T.ink}}
 .si-topbar{background:${T.white};border-bottom:1px solid ${T.border};display:flex;align-items:center;padding:0 28px;height:56px;gap:18px;position:sticky;top:0;z-index:100;flex-wrap:wrap}
-.si-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:600;color:${T.ink}}
+.si-title{font-family:var(--font-jakarta),sans-serif;font-size:15px;font-weight:600;color:${T.ink}}
 .si-week{display:flex;align-items:center;gap:8px}
 .si-week-label{font-size:12px;color:${T.inkLight};font-weight:600}
-.si-week-input{border:1px solid ${T.border};border-radius:8px;padding:7px 10px;font-family:'DM Sans',sans-serif;font-size:13px;color:${T.ink};outline:none}
+.si-week-input{border:1px solid ${T.border};border-radius:8px;padding:7px 10px;font-family:var(--font-jakarta),sans-serif;font-size:13px;color:${T.ink};outline:none}
 .si-week-input:focus{border-color:${T.tealMid}}
 .si-week-range{font-size:12px;font-weight:600;color:${T.teal};background:${T.tealLight};border:1px solid ${T.tealBorder};border-radius:7px;padding:5px 10px}
 .si-right{margin-left:auto;display:flex;align-items:center;gap:10px}
 .si-main{padding:28px 32px;max-width:1100px}
-.si-btn{padding:9px 16px;border-radius:8px;border:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
-.si-btn.primary{background:${T.tealMid};color:#fff}.si-btn.primary:hover{background:${T.teal}}
+.si-btn{padding:9px 16px;border-radius:8px;border:none;font-family:var(--font-jakarta),sans-serif;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.si-btn.primary{background:${T.tealMid};color:#1B2B2B}.si-btn.primary:hover{background:${T.teal}}
 .si-btn.secondary{background:${T.white};color:${T.inkMid};border:1px solid ${T.border}}.si-btn.secondary:hover{border-color:${T.tealBorder};color:${T.teal}}
 .si-btn.ghost{background:${T.white};color:${T.inkMid};border:1px solid ${T.border}}.si-btn.ghost:hover{border-color:${T.tealBorder};color:${T.teal}}
 .si-banner{padding:12px 16px;border-radius:10px;font-size:13px;margin-bottom:16px;background:${T.redBg};border:1px solid ${T.redBorder};color:${T.red}}
 .si-weekbanner{padding:11px 16px;border-radius:10px;font-size:13px;margin-bottom:16px;background:${T.tealLight};border:1px solid ${T.tealBorder};color:${T.teal}}
 .si-intro{margin-bottom:18px}
-.si-intro-title{font-family:'Syne',sans-serif;font-size:20px;font-weight:600;margin-bottom:6px}
+.si-intro-title{font-family:var(--font-jakarta),sans-serif;font-size:20px;font-weight:600;margin-bottom:6px}
 .si-intro-sub{font-size:13px;color:${T.inkLight};line-height:1.7;max-width:740px}
 .si-intro-sub code{font-family:'DM Mono',monospace;font-size:12px;background:${T.tealLight};color:${T.teal};padding:1px 5px;border-radius:4px}
 .si-drop{background:${T.white};border:2px dashed ${T.tealBorder};border-radius:16px;padding:56px 20px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s}
@@ -310,7 +304,7 @@ const css = `
 .si-drop-sub{font-size:13px;color:${T.inkLight}}
 .si-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px}
 .si-stat{background:${T.white};border:1px solid ${T.border};border-radius:10px;padding:14px 18px}
-.si-stat-val{font-family:'Syne',sans-serif;font-size:26px;font-weight:700;line-height:1;margin-bottom:4px}
+.si-stat-val{font-family:var(--font-jakarta),sans-serif;font-size:26px;font-weight:700;line-height:1;margin-bottom:4px}
 .si-stat-label{font-size:11px;color:${T.inkLight};font-weight:500}
 .si-grid-wrap{background:${T.white};border:1px solid ${T.border};border-radius:12px;overflow:auto;max-height:60vh}
 .si-grid{width:100%;border-collapse:collapse;font-size:12px}
@@ -334,12 +328,12 @@ const css = `
 .si-uploading-title{font-size:16px;font-weight:600;margin-bottom:4px}
 .si-uploading-sub{font-size:13px;color:${T.inkLight}}
 .si-done{text-align:center;padding:48px 20px;max-width:720px;margin:0 auto}
-.si-done-ring{width:96px;height:96px;border-radius:50%;background:${T.tealMid};display:flex;align-items:center;justify-content:center;font-size:46px;color:#fff;margin:0 auto 22px}
-.si-done-h{font-family:'Syne',sans-serif;font-size:24px;font-weight:600;margin-bottom:24px}
+.si-done-ring{width:96px;height:96px;border-radius:50%;background:${T.tealMid};display:flex;align-items:center;justify-content:center;font-size:46px;color:#1B2B2B;margin:0 auto 22px}
+.si-done-h{font-family:var(--font-jakarta),sans-serif;font-size:24px;font-weight:600;margin-bottom:24px}
 .si-done-cards{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:24px}
 .si-dcard{background:${T.white};border:1px solid ${T.border};border-radius:12px;padding:16px 20px;min-width:92px}
 .si-dcard.err{border-color:${T.redBorder};background:${T.redBg}}
-.si-dcard-val{font-family:'Syne',sans-serif;font-size:24px;font-weight:700;line-height:1;margin-bottom:4px}
+.si-dcard-val{font-family:var(--font-jakarta),sans-serif;font-size:24px;font-weight:700;line-height:1;margin-bottom:4px}
 .si-dcard-label{font-size:11px;color:${T.inkLight};text-transform:uppercase;letter-spacing:.05em;font-weight:600}
 .si-errlist{text-align:left;background:${T.redBg};border:1px solid ${T.redBorder};border-radius:12px;padding:16px 18px;margin-bottom:24px}
 .si-errlist-title{font-size:12px;font-weight:700;color:${T.red};text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}

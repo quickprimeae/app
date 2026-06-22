@@ -6,14 +6,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 
-const T = {
-  bg: '#0a0f0d', bgCard: '#111815', bgHover: '#161e1a', bgSubtle: '#0f1712',
-  border: '#1e2b24', borderMid: '#243329', teal: '#0F6E56', tealMid: '#1D9E75',
-  tealBright: '#25D09A', tealText: '#5DCAA5', tealFaint: '#0d1f18',
-  green: '#22c55e', greenBg: '#0d2018', amber: '#f59e0b', amberBg: '#1f1608',
-  red: '#ef4444', redBg: '#1f0d0d', white: '#f0f7f4', whiteMid: '#c8ddd6',
-  dim: '#6b8078', dimMid: '#4a6058',
-}
+import { T } from '@/lib/theme'
 
 type Shift = {
   id: string
@@ -165,22 +158,22 @@ export default function HoursClient() {
 
 const css = `
 *,*::before,*::after{box-sizing:border-box}
-.hv-root{font-family:'DM Sans',sans-serif;background:${T.bg};min-height:100vh;color:${T.white}}
+.hv-root{font-family:var(--font-jakarta),sans-serif;background:${T.bg};min-height:100vh;color:${T.white}}
 .hv-topbar{background:${T.bgCard};border-bottom:1px solid ${T.border};display:flex;align-items:center;padding:0 28px;height:56px;gap:16px;position:sticky;top:0;z-index:100}
 .hv-logo{font-family:'DM Mono',monospace;font-size:13px;color:${T.tealBright};letter-spacing:.06em;text-decoration:none}
 .hv-divider{width:1px;height:20px;background:${T.border}}
-.hv-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:600;color:${T.whiteMid}}
+.hv-title{font-family:var(--font-jakarta),sans-serif;font-size:15px;font-weight:600;color:${T.whiteMid}}
 .hv-right{margin-left:auto;display:flex;align-items:center;gap:10px}
-.hv-select{background:${T.bgSubtle};border:1px solid ${T.border};border-radius:8px;padding:7px 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:${T.white};outline:none;cursor:pointer}
+.hv-select{background:${T.bgSubtle};border:1px solid ${T.border};border-radius:8px;padding:7px 12px;font-family:var(--font-jakarta),sans-serif;font-size:13px;color:${T.white};outline:none;cursor:pointer}
 .hv-btn{padding:7px 14px;border-radius:8px;border:none;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none}
 .hv-btn.ghost{background:${T.bgSubtle};color:${T.whiteMid};border:1px solid ${T.border}}.hv-btn.ghost:hover{border-color:${T.teal};color:${T.tealBright}}
 .hv-main{padding:28px 32px}
 .hv-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px}
 .hv-stat{background:${T.bgCard};border:1px solid ${T.border};border-radius:10px;padding:16px 18px}
-.hv-stat-val{font-family:'Syne',sans-serif;font-size:24px;font-weight:700;line-height:1;margin-bottom:4px}
+.hv-stat-val{font-family:var(--font-jakarta),sans-serif;font-size:24px;font-weight:700;line-height:1;margin-bottom:4px}
 .hv-stat-label{font-size:11px;color:${T.dim};font-weight:500}
 .hv-filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
-.hv-filter{padding:6px 13px;border-radius:18px;border:1px solid ${T.border};background:none;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;color:${T.dim};cursor:pointer;transition:all .12s}
+.hv-filter{padding:6px 13px;border-radius:18px;border:1px solid ${T.border};background:none;font-family:var(--font-jakarta),sans-serif;font-size:12px;font-weight:600;color:${T.dim};cursor:pointer;transition:all .12s}
 .hv-filter:hover{border-color:${T.teal};color:${T.tealText}}
 .hv-filter.active{background:${T.tealFaint};border-color:${T.teal};color:${T.tealBright}}
 .hv-table-wrap{background:${T.bgCard};border:1px solid ${T.border};border-radius:12px;overflow:hidden}
@@ -190,7 +183,7 @@ const css = `
 .hv-table tbody tr{border-bottom:1px solid ${T.border}}
 .hv-table tbody tr:last-child{border-bottom:none}
 .hv-table tbody tr:hover{background:${T.bgHover}}
-.hv-table tbody tr.review{background:#0f0c04}
+.hv-table tbody tr.review{background:#FEF3C7}
 .hv-table td{padding:11px 16px;vertical-align:middle;color:${T.whiteMid}}
 .hv-sub{font-family:'DM Mono',monospace;font-size:10px;color:${T.dim}}
 .hv-loc{font-size:12px;color:${T.dim};max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -198,12 +191,12 @@ const css = `
 .hv-auto{margin-left:6px;font-size:9px;font-weight:700;color:${T.amber};background:${T.amberBg};padding:1px 5px;border-radius:6px;text-transform:uppercase}
 .hv-badge{font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;text-transform:uppercase;letter-spacing:.03em}
 .hv-badge.pending{background:${T.bgSubtle};color:${T.dim};border:1px solid ${T.border}}
-.hv-badge.verified{background:${T.greenBg};color:${T.green};border:1px solid #1a4030}
+.hv-badge.verified{background:${T.greenBg};color:${T.green};border:1px solid #9DEEE6}
 .hv-badge.adjusted{background:${T.tealFaint};color:${T.tealBright};border:1px solid ${T.teal}}
-.hv-badge.disputed{background:${T.redBg};color:${T.red};border:1px solid #3d1a1a}
+.hv-badge.disputed{background:${T.redBg};color:${T.red};border:1px solid #FCA5A5}
 .hv-actions{display:flex;gap:6px}
-.hv-act{padding:5px 9px;border-radius:6px;border:1px solid ${T.border};background:none;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;color:${T.whiteMid};cursor:pointer;white-space:nowrap;transition:all .12s}
+.hv-act{padding:5px 9px;border-radius:6px;border:1px solid ${T.border};background:none;font-family:var(--font-jakarta),sans-serif;font-size:11px;font-weight:600;color:${T.whiteMid};cursor:pointer;white-space:nowrap;transition:all .12s}
 .hv-act:hover{border-color:${T.tealMid};color:${T.tealBright}}
-.hv-act.danger:hover{border-color:#5a1a1a;color:${T.red}}
+.hv-act.danger:hover{border-color:#FCA5A5;color:${T.red}}
 .hv-act:disabled{opacity:.5;cursor:not-allowed}
 `

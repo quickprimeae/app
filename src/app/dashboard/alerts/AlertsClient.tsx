@@ -7,14 +7,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
-const T = {
-  bg: '#0a0f0d', bgCard: '#111815', bgHover: '#161e1a', bgSubtle: '#0f1712',
-  border: '#1e2b24', borderMid: '#243329', teal: '#0F6E56', tealMid: '#1D9E75',
-  tealBright: '#25D09A', tealText: '#5DCAA5', tealFaint: '#0d1f18',
-  green: '#22c55e', greenBg: '#0d2018', amber: '#f59e0b', amberBg: '#1f1608',
-  red: '#ef4444', redBg: '#1f0d0d', purple: '#a78bfa', purpleBg: '#160f2a',
-  white: '#f0f7f4', whiteMid: '#c8ddd6', dim: '#6b8078', dimMid: '#4a6058',
-}
+import { T } from '@/lib/theme'
 
 export type AlertItem = {
   id: string
@@ -43,10 +36,10 @@ export type AlertItem = {
 }
 
 const TYPE_META: Record<string, { icon: string; color: string; bg: string; border: string }> = {
-  noshow: { icon: '🚨', color: T.red, bg: T.redBg, border: '#5a1a1a' },
-  late: { icon: '⏱', color: T.amber, bg: T.amberBg, border: '#5a3d0a' },
-  faceflag: { icon: '🔍', color: T.amber, bg: T.amberBg, border: '#5a3d0a' },
-  clockout: { icon: '⏹', color: T.purple, bg: T.purpleBg, border: '#3a2060' },
+  noshow: { icon: '🚨', color: T.red, bg: T.redBg, border: '#FCA5A5' },
+  late: { icon: '⏱', color: T.amber, bg: T.amberBg, border: '#FCD34D' },
+  faceflag: { icon: '🔍', color: T.amber, bg: T.amberBg, border: '#FCD34D' },
+  clockout: { icon: '⏹', color: T.purple, bg: T.purpleBg, border: '#DDD6FE' },
   system: { icon: '⚙️', color: T.dim, bg: T.bgSubtle, border: T.border },
 }
 
@@ -366,35 +359,35 @@ const css = `
 *,*::before,*::after{box-sizing:border-box}
 .ff-card{background:${T.bgCard};border:1px solid ${T.border};border-radius:12px;padding:16px 18px;margin-bottom:12px;animation:fadeIn .25s ease both}
 .ff-card.focus{border-color:${T.tealMid};box-shadow:0 0 0 2px rgba(37,208,154,.25)}
-.ff-card.rejected{opacity:.85;border-color:#3d1a1a}
+.ff-card.rejected{opacity:.85;border-color:#FCA5A5}
 .ff-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:14px}
 .ff-name{font-size:15px;font-weight:600;color:${T.white};display:flex;align-items:center;gap:8px}
 .ff-empid{font-family:'DM Mono',monospace;font-size:11px;color:${T.dim};font-weight:400}
 .ff-meta{font-size:11px;color:${T.dim};margin-top:3px}
 .ff-dist{font-family:'DM Mono',monospace;font-size:12px;font-weight:600;padding:4px 9px;border-radius:8px;border:1px solid;white-space:nowrap}
-.ff-rej-badge{font-size:10px;font-weight:700;color:${T.red};background:${T.redBg};border:1px solid #3d1a1a;padding:4px 8px;border-radius:8px;white-space:nowrap}
+.ff-rej-badge{font-size:10px;font-weight:700;color:${T.red};background:${T.redBg};border:1px solid #FCA5A5;padding:4px 8px;border-radius:8px;white-space:nowrap}
 .ff-compare{display:flex;gap:12px;margin-bottom:12px}
 .ff-photo{flex:1;margin:0;display:flex;flex-direction:column;gap:6px}
 .ff-photo-cap{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:${T.dimMid}}
 .ff-photo img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;border:1px solid ${T.border};background:${T.bgSubtle}}
 .ff-photo-missing{width:100%;aspect-ratio:1;border-radius:10px;border:1px dashed ${T.borderMid};background:${T.bgSubtle};display:flex;align-items:center;justify-content:center;font-size:12px;color:${T.dim}}
-.ff-lockout{font-size:12px;color:${T.amber};background:${T.amberBg};border:1px solid #5a3d0a;border-radius:10px;padding:12px 14px;line-height:1.6;margin-bottom:12px}
+.ff-lockout{font-size:12px;color:${T.amber};background:${T.amberBg};border:1px solid #FCD34D;border-radius:10px;padding:12px 14px;line-height:1.6;margin-bottom:12px}
 .ff-cardbody{font-size:12px;color:${T.dim};line-height:1.5;margin-bottom:14px}
 .ff-actions{display:flex;gap:10px}
-.ff-btn{flex:1;padding:11px;border-radius:9px;border:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:opacity .12s}
+.ff-btn{flex:1;padding:11px;border-radius:9px;border:none;font-family:var(--font-jakarta),sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:opacity .12s}
 .ff-btn:disabled{opacity:.5;cursor:not-allowed}
-.ff-btn.approve{background:${T.greenBg};color:${T.green};border:1px solid #1a4030}
-.ff-btn.reject{background:${T.redBg};color:${T.red};border:1px solid #3d1a1a}
-.al-root{font-family:'DM Sans',sans-serif;background:${T.bg};min-height:100vh;color:${T.white};display:flex;flex-direction:column}
+.ff-btn.approve{background:${T.greenBg};color:${T.green};border:1px solid #9DEEE6}
+.ff-btn.reject{background:${T.redBg};color:${T.red};border:1px solid #FCA5A5}
+.al-root{font-family:var(--font-jakarta),sans-serif;background:${T.bg};min-height:100vh;color:${T.white};display:flex;flex-direction:column}
 .al-topbar{background:${T.bgCard};border-bottom:1px solid ${T.border};display:flex;align-items:center;padding:0 28px;height:56px;gap:16px;position:sticky;top:0;z-index:100}
 .al-logo{font-family:'DM Mono',monospace;font-size:13px;color:${T.tealBright};letter-spacing:.06em;text-decoration:none}
 .al-divider{width:1px;height:20px;background:${T.border}}
-.al-topbar-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:600;color:${T.whiteMid}}
+.al-topbar-title{font-family:var(--font-jakarta),sans-serif;font-size:15px;font-weight:600;color:${T.whiteMid}}
 .al-live{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:${T.tealBright};letter-spacing:.06em;text-transform:uppercase}
 .al-live-dot{width:7px;height:7px;border-radius:50%;background:${T.tealBright};animation:lp 2s infinite}
 @keyframes lp{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(37,208,154,.4)}50%{opacity:.6;box-shadow:0 0 0 5px rgba(37,208,154,0)}}
 .al-topbar-right{margin-left:auto;display:flex;align-items:center;gap:10px}
-.al-btn{padding:7px 14px;border-radius:7px;border:none;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;transition:opacity .12s}
+.al-btn{padding:7px 14px;border-radius:7px;border:none;font-family:var(--font-jakarta),sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;transition:opacity .12s}
 .al-btn.ghost{background:${T.bgSubtle};color:${T.whiteMid};border:1px solid ${T.border}}.al-btn.ghost:hover{border-color:${T.teal};color:${T.tealBright}}
 .al-body{display:flex;flex:1;overflow:hidden;height:calc(100vh - 56px)}
 .al-sidebar{width:240px;flex-shrink:0;border-right:1px solid ${T.border};background:${T.bgCard};padding:20px 14px;overflow-y:auto}
@@ -410,9 +403,9 @@ const css = `
 .al-s-count.amber{background:${T.amberBg};color:${T.amber}}
 .al-stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
 .al-stat{background:${T.bgCard};border:1px solid ${T.border};border-radius:10px;padding:14px 18px}
-.al-stat-val{font-family:'Syne',sans-serif;font-size:26px;font-weight:700;line-height:1;margin-bottom:4px}
+.al-stat-val{font-family:var(--font-jakarta),sans-serif;font-size:26px;font-weight:700;line-height:1;margin-bottom:4px}
 .al-stat-label{font-size:11px;color:${T.dim};font-weight:500}
-.al-section-title{font-family:'Syne',sans-serif;font-size:13px;font-weight:600;color:${T.whiteMid};margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.al-section-title{font-family:var(--font-jakarta),sans-serif;font-size:13px;font-weight:600;color:${T.whiteMid};margin-bottom:12px;display:flex;align-items:center;gap:8px}
 .al-section-title span{font-size:11px;font-weight:400;color:${T.dim}}
 .al-card{background:${T.bgCard};border:1px solid ${T.border};border-radius:12px;margin-bottom:10px;overflow:hidden;transition:border-color .15s;cursor:pointer;animation:fadeIn .25s ease both}
 @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
@@ -428,20 +421,20 @@ const css = `
 .al-card-right{display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex-shrink:0}
 .al-card-time{font-family:'DM Mono',monospace;font-size:11px;color:${T.dim};white-space:nowrap;text-align:right}
 .al-sev-badge{font-size:10px;font-weight:700;padding:3px 8px;border-radius:8px;letter-spacing:.04em;text-transform:uppercase}
-.al-sev-badge.critical{background:${T.redBg};color:${T.red};border:1px solid #5a1a1a}
-.al-sev-badge.warning{background:${T.amberBg};color:${T.amber};border:1px solid #5a3d0a}
-.al-sev-badge.resolved-b{background:${T.greenBg};color:${T.green};border:1px solid #1a4030}
+.al-sev-badge.critical{background:${T.redBg};color:${T.red};border:1px solid #FCA5A5}
+.al-sev-badge.warning{background:${T.amberBg};color:${T.amber};border:1px solid #FCD34D}
+.al-sev-badge.resolved-b{background:${T.greenBg};color:${T.green};border:1px solid #9DEEE6}
 .al-card-expanded{border-top:1px solid ${T.border};padding:16px 18px;display:flex;gap:20px}
 .al-expand-col{flex:1}
 .al-expand-label{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:${T.dimMid};margin-bottom:8px}
-.al-notes-input{width:100%;background:${T.bgSubtle};border:1px solid ${T.border};border-radius:8px;padding:10px 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:${T.white};outline:none;resize:none;height:72px;transition:border-color .15s}
+.al-notes-input{width:100%;background:${T.bgSubtle};border:1px solid ${T.border};border-radius:8px;padding:10px 12px;font-family:var(--font-jakarta),sans-serif;font-size:13px;color:${T.white};outline:none;resize:none;height:72px;transition:border-color .15s}
 .al-notes-input:focus{border-color:${T.tealMid}}
 .al-notes-input::placeholder{color:${T.dimMid}}
 .al-expand-actions{display:flex;flex-direction:column;gap:8px;min-width:180px}
-.al-action-btn{padding:10px 14px;border-radius:8px;border:none;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:7px;transition:opacity .12s;width:100%;text-align:left}
+.al-action-btn{padding:10px 14px;border-radius:8px;border:none;font-family:var(--font-jakarta),sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:7px;transition:opacity .12s;width:100%;text-align:left}
 .al-action-btn:hover{opacity:.85}
 .al-action-btn:disabled{opacity:.5;cursor:not-allowed}
-.al-action-btn.primary{background:${T.tealMid};color:#fff}
+.al-action-btn.primary{background:${T.tealMid};color:#1B2B2B}
 .al-resolve-note{font-size:12px;color:${T.dim};padding:8px 12px;background:${T.bgSubtle};border-radius:7px;border:1px solid ${T.border};margin-bottom:4px}
 .al-resolve-note strong{color:${T.tealText};font-weight:600}
 `

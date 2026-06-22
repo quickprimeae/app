@@ -6,10 +6,9 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 
-const TEAL = '#0F6E56'
-const TEAL_MID = '#1D9E75'
-const TEAL_LIGHT = '#E1F5EE'
-const TEAL_DARK = '#085041'
+import { PICKER } from '@/lib/theme'
+
+const { TEAL, TEAL_MID, TEAL_LIGHT, TEAL_DARK } = PICKER
 
 type Phase = 'loading' | 'invalid' | 'enter' | 'confirm' | 'saving' | 'done'
 
@@ -210,7 +209,7 @@ export default function SetupPinPage() {
 
 const css = `
   *, *::before, *::after { box-sizing: border-box; }
-  .sp-root { font-family: 'DM Sans', sans-serif; background: #f0f4f2; min-height: 100vh; display: flex; justify-content: center; -webkit-tap-highlight-color: transparent; user-select: none; }
+  .sp-root { font-family: var(--font-jakarta), sans-serif; background: #f0f4f2; min-height: 100vh; display: flex; justify-content: center; -webkit-tap-highlight-color: transparent; user-select: none; }
   .sp-phone { width: 100%; max-width: 390px; min-height: 100vh; background: #fff; display: flex; flex-direction: column; }
   .sp-header { background: ${TEAL_DARK}; padding: 52px 24px 24px; }
   .sp-logo { font-family: 'DM Mono', monospace; font-size: 15px; font-weight: 500; color: #5DCAA5; letter-spacing: 0.04em; }
@@ -226,14 +225,14 @@ const css = `
   .sp-pin-dot.error { background: #E24B4A; border-color: #E24B4A; animation: shake 0.3s ease; }
   @keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
   .sp-keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; width: 100%; max-width: 280px; }
-  .sp-key { aspect-ratio: 1; border-radius: 14px; border: none; background: #f3f4f6; font-family: 'DM Sans', sans-serif; font-size: 22px; font-weight: 500; color: ${TEAL_DARK}; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.1s, transform 0.1s; }
+  .sp-key { aspect-ratio: 1; border-radius: 14px; border: none; background: #f3f4f6; font-family: var(--font-jakarta), sans-serif; font-size: 22px; font-weight: 500; color: ${TEAL_DARK}; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.1s, transform 0.1s; }
   .sp-key:active { background: #e5e7eb; transform: scale(0.93); }
   .sp-key.delete { background: transparent; font-size: 18px; color: #9ca3af; }
   .sp-key.empty { background: transparent; cursor: default; }
   .sp-spinner { width: 56px; height: 56px; border: 3px solid ${TEAL_LIGHT}; border-top-color: ${TEAL_MID}; border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 28px; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .sp-success { width: 100px; height: 100px; border-radius: 50%; background: ${TEAL_MID}; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 48px; margin-bottom: 28px; animation: popIn 0.3s cubic-bezier(0.175,0.885,0.32,1.275); }
+  .sp-success { width: 100px; height: 100px; border-radius: 50%; background: ${TEAL_MID}; color: #1B2B2B; display: flex; align-items: center; justify-content: center; font-size: 48px; margin-bottom: 28px; animation: popIn 0.3s cubic-bezier(0.175,0.885,0.32,1.275); }
   @keyframes popIn { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-  .sp-btn { display: inline-block; padding: 16px 28px; border-radius: 14px; background: ${TEAL_MID}; color: #fff; font-size: 16px; font-weight: 600; text-decoration: none; }
-  .sp-link { margin-top: 18px; background: none; border: none; color: ${TEAL}; font-family: 'DM Sans', sans-serif; font-size: 14px; cursor: pointer; }
+  .sp-btn { display: inline-block; padding: 16px 28px; border-radius: 14px; background: ${TEAL_MID}; color: #1B2B2B; font-size: 16px; font-weight: 600; text-decoration: none; }
+  .sp-link { margin-top: 18px; background: none; border: none; color: ${TEAL}; font-family: var(--font-jakarta), sans-serif; font-size: 14px; cursor: pointer; }
 `

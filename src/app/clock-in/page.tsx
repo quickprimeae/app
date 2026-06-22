@@ -5,11 +5,9 @@
 
 import { useState, useEffect } from 'react'
 import LiveCameraCapture from '@/components/LiveCameraCapture'
+import { PICKER } from '@/lib/theme'
 
-const TEAL = '#0F6E56'
-const TEAL_MID = '#1D9E75'
-const TEAL_LIGHT = '#E1F5EE'
-const TEAL_DARK = '#085041'
+const { TEAL, TEAL_MID, TEAL_LIGHT, TEAL_DARK } = PICKER
 
 type EmployeeInfo = {
   id: string
@@ -648,7 +646,7 @@ export default function PickerClockIn() {
               {matchPhase === 'result' && matchResult && (() => {
                 const v = matchResult.verdict
                 const committed = v === 'pass' || v === 'flag'
-                const tone = v === 'pass' ? '#1D9E75' : v === 'block' || v === 'error' ? '#A32D2D' : '#854F0B'
+                const tone = v === 'pass' ? '#00857B' : v === 'block' || v === 'error' ? '#A32D2D' : '#854F0B'
                 const label =
                   v === 'pass' ? '✓ Verified'
                   : v === 'flag' ? '⚠ Recorded — flagged for review'
@@ -724,8 +722,8 @@ const css = `
   *, *::before, *::after { box-sizing: border-box; }
 
   .qp-root {
-    font-family: 'DM Sans', sans-serif;
-    background: #f0f4f2;
+    font-family: var(--font-jakarta), sans-serif;
+    background: #F6F8F8;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
@@ -754,19 +752,19 @@ const css = `
   .qp-logo {
     font-family: 'DM Mono', monospace;
     font-size: 15px; font-weight: 500;
-    color: #5DCAA5; letter-spacing: 0.04em;
+    color: #00857B; letter-spacing: 0.04em;
   }
   .qp-greeting { margin-top: 18px; }
-  .qp-greeting-sub { font-size: 13px; color: #5DCAA5; font-weight: 400; margin-bottom: 3px; }
+  .qp-greeting-sub { font-size: 13px; color: #B6F2EC; font-weight: 400; margin-bottom: 3px; }
   .qp-greeting-name { font-size: 26px; font-weight: 600; color: #fff; line-height: 1.1; }
   .qp-avatar {
     width: 44px; height: 44px; border-radius: 50%;
     background: ${TEAL_MID}; display: flex; align-items: center; justify-content: center;
-    font-size: 18px; font-weight: 600; color: #fff; flex-shrink: 0; margin-top: 4px;
+    font-size: 18px; font-weight: 600; color: #1B2B2B; flex-shrink: 0; margin-top: 4px;
   }
   .qp-shift-card {
     margin: 20px 20px 0; background: ${TEAL_LIGHT}; border-radius: 16px;
-    padding: 18px 20px; border: 1px solid #9FE1CB;
+    padding: 18px 20px; border: 1px solid #9DEEE6;
   }
   .qp-shift-label {
     font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
@@ -777,7 +775,7 @@ const css = `
   .qp-shift-row { display: flex; gap: 12px; }
   .qp-shift-pill {
     background: #fff; border-radius: 8px; padding: 8px 12px;
-    display: flex; flex-direction: column; gap: 2px; border: 1px solid #9FE1CB;
+    display: flex; flex-direction: column; gap: 2px; border: 1px solid #9DEEE6;
   }
   .qp-shift-pill-label { font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: ${TEAL}; }
   .qp-shift-pill-val { font-size: 15px; font-weight: 600; color: ${TEAL_DARK}; font-family: 'DM Mono', monospace; }
@@ -799,19 +797,19 @@ const css = `
   .qp-cta-wrap { width: 100%; margin-bottom: 16px; }
   .qp-cta-btn {
     width: 100%; padding: 22px 24px; border-radius: 18px; border: none;
-    font-family: 'DM Sans', sans-serif; font-size: 18px; font-weight: 600; cursor: pointer;
+    font-family: var(--font-jakarta), sans-serif; font-size: 18px; font-weight: 600; cursor: pointer;
     display: flex; align-items: center; justify-content: center; gap: 10px;
     transition: transform 0.12s ease, opacity 0.12s ease; position: relative; overflow: hidden;
   }
   .qp-cta-btn:active { transform: scale(0.97); }
-  .qp-cta-btn.clock-in { background: ${TEAL_MID}; color: #fff; }
+  .qp-cta-btn.clock-in { background: ${TEAL_MID}; color: #1B2B2B; }
   .qp-cta-btn.clock-out { background: #fff; color: ${TEAL_DARK}; border: 2px solid ${TEAL_MID}; }
   .qp-cta-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
   .qp-cta-icon { font-size: 22px; line-height: 1; }
 
   .qp-clocked-status {
     width: 100%; background: ${TEAL_LIGHT}; border-radius: 14px; padding: 16px 20px;
-    display: flex; align-items: center; gap: 14px; margin-bottom: 14px; border: 1px solid #9FE1CB;
+    display: flex; align-items: center; gap: 14px; margin-bottom: 14px; border: 1px solid #9DEEE6;
   }
   .qp-status-dot { width: 12px; height: 12px; border-radius: 50%; background: ${TEAL_MID}; flex-shrink: 0; animation: pulse 2s infinite; }
   @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
@@ -842,7 +840,7 @@ const css = `
   .qp-keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; width: 100%; max-width: 280px; }
   .qp-key {
     aspect-ratio: 1; border-radius: 14px; border: none; background: #f3f4f6;
-    font-family: 'DM Sans', sans-serif; font-size: 22px; font-weight: 500; color: ${TEAL_DARK};
+    font-family: var(--font-jakarta), sans-serif; font-size: 22px; font-weight: 500; color: ${TEAL_DARK};
     cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.1s, transform 0.1s;
   }
   .qp-key:active { background: #e5e7eb; transform: scale(0.93); }
@@ -877,14 +875,14 @@ const css = `
     background: #FCEBEB; border: 1px solid #F7C1C1; border-radius: 12px; padding: 14px 18px;
     display: flex; gap: 10px; align-items: flex-start; width: 100%; max-width: 320px;
   }
-  .qp-error-text { font-size: 13px; color: #791F1F; line-height: 1.5; }
+  .qp-error-text { font-size: 13px; color: #DC2626; line-height: 1.5; }
 
   .qp-back { position: absolute; top: 52px; left: 20px; background: none; border: none; font-size: 26px; color: #9ca3af; cursor: pointer; padding: 4px; line-height: 1; z-index: 20; }
   .qp-back:disabled { opacity: 0.4; }
 
   .qp-full-btn {
     width: 100%; max-width: 320px; padding: 18px; border-radius: 14px; border: none;
-    background: ${TEAL_MID}; color: #fff; font-family: 'DM Sans', sans-serif; font-size: 16px; font-weight: 600;
+    background: ${TEAL_MID}; color: #1B2B2B; font-family: var(--font-jakarta), sans-serif; font-size: 16px; font-weight: 600;
     cursor: pointer; transition: transform 0.1s, opacity 0.1s;
   }
   .qp-full-btn:active { transform: scale(0.97); }

@@ -9,13 +9,7 @@ import Link from 'next/link'
 import Papa from 'papaparse'
 import { normalizePhone } from '@/lib/phone'
 
-const T = {
-  tealDark: '#085041', teal: '#0F6E56', tealMid: '#1D9E75', tealLight: '#E1F5EE',
-  tealBorder: '#9FE1CB', tealText: '#5DCAA5', ink: '#0f1a15', inkMid: '#374940',
-  inkLight: '#6b7c75', surface: '#f5f8f6', white: '#ffffff', border: '#e0ebe6',
-  amber: '#854F0B', amberBg: '#FAEEDA', amberBorder: '#FAC775', red: '#A32D2D',
-  redBg: '#FCEBEB', redBorder: '#F7C1C1', green: '#085041', greenBg: '#E1F5EE',
-}
+import { LT as T } from '@/lib/theme'
 
 const COLUMNS = [
   { key: 'name', required: true, desc: 'Full name (split on first space)' },
@@ -286,14 +280,14 @@ export default function BulkClient() {
 
 const css = `
 *,*::before,*::after{box-sizing:border-box}
-.bu-root{font-family:'DM Sans',sans-serif;background:${T.surface};min-height:100vh;color:${T.ink}}
+.bu-root{font-family:var(--font-jakarta),sans-serif;background:${T.surface};min-height:100vh;color:${T.ink}}
 .bu-layout{display:grid;grid-template-columns:260px 1fr;min-height:100vh}
 .bu-sidebar{background:${T.tealDark};padding:36px 28px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
 .bu-logo{font-family:'DM Mono',monospace;font-size:13px;color:${T.tealText};letter-spacing:.06em;margin-bottom:36px;text-decoration:none}
-.bu-sidebar-title{font-family:'Fraunces',serif;font-size:22px;font-weight:300;color:#fff;line-height:1.3;margin-bottom:8px}
+.bu-sidebar-title{font-family:var(--font-jakarta),serif;font-size:22px;font-weight:300;color:#fff;line-height:1.3;margin-bottom:8px}
 .bu-sidebar-sub{font-size:12px;color:${T.tealText};line-height:1.6;margin-bottom:32px}
 .bu-mode-btns{display:flex;flex-direction:column;gap:8px;margin-bottom:32px}
-.bu-mode-btn{padding:12px 14px;border-radius:10px;border:none;background:rgba(255,255,255,.08);color:rgba(255,255,255,.6);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px;transition:background .15s,color .15s;text-decoration:none}
+.bu-mode-btn{padding:12px 14px;border-radius:10px;border:none;background:rgba(255,255,255,.08);color:rgba(255,255,255,.6);font-family:var(--font-jakarta),sans-serif;font-size:13px;font-weight:500;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px;transition:background .15s,color .15s;text-decoration:none}
 .bu-mode-btn:hover{background:rgba(255,255,255,.12);color:#fff}
 .bu-mode-btn.active{background:rgba(255,255,255,.15);color:#fff}
 .bu-mode-icon{font-size:16px}
@@ -307,14 +301,14 @@ const css = `
 .bu-main{padding:48px 52px}
 .bu-page-header{margin-bottom:36px}
 .bu-page-tag{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:${T.tealMid};margin-bottom:8px}
-.bu-page-h{font-family:'Fraunces',serif;font-size:34px;font-weight:300;color:${T.ink};line-height:1.15;margin-bottom:8px}
+.bu-page-h{font-family:var(--font-jakarta),serif;font-size:34px;font-weight:300;color:${T.ink};line-height:1.15;margin-bottom:8px}
 .bu-page-h em{font-style:italic;color:${T.tealMid}}
 .bu-page-sub{font-size:14px;color:${T.inkLight};line-height:1.6}
 .bu-template-box{background:${T.white};border:1px solid ${T.border};border-radius:16px;padding:28px 32px;margin-bottom:28px;display:flex;align-items:center;justify-content:space-between;gap:24px}
 .bu-template-label{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:${T.tealMid};margin-bottom:6px}
 .bu-template-title{font-size:18px;font-weight:600;color:${T.ink};margin-bottom:4px}
 .bu-template-desc{font-size:13px;color:${T.inkLight};line-height:1.5}
-.bu-dl-btn{display:flex;align-items:center;gap:8px;padding:13px 22px;border-radius:10px;border:1.5px solid ${T.tealMid};background:${T.tealLight};color:${T.teal};font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0}
+.bu-dl-btn{display:flex;align-items:center;gap:8px;padding:13px 22px;border-radius:10px;border:1.5px solid ${T.tealMid};background:${T.tealLight};color:${T.teal};font-family:var(--font-jakarta),sans-serif;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0}
 .bu-dl-btn:hover{background:#c8ecdf;border-color:${T.teal}}
 .bu-drop-zone{border:2px dashed ${T.tealBorder};border-radius:16px;background:${T.white};padding:52px 40px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;margin-bottom:28px;gap:12px}
 .bu-drop-zone:hover,.bu-drop-zone.drag{border-color:${T.tealMid};background:${T.tealLight}}
@@ -345,8 +339,8 @@ const css = `
 .bu-status-dot.err{background:${T.redBg};color:${T.red}}
 .bu-err-list{display:flex;flex-direction:column;gap:3px;margin-top:3px}
 .bu-err-msg{font-size:11px;color:${T.red};line-height:1.3}
-.bu-btn{padding:12px 22px;border-radius:10px;border:none;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:8px;transition:opacity .1s,background .15s;text-decoration:none}
-.bu-btn.primary{background:${T.tealMid};color:#fff}.bu-btn.primary:hover{background:${T.teal}}
+.bu-btn{padding:12px 22px;border-radius:10px;border:none;font-family:var(--font-jakarta),sans-serif;font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:8px;transition:opacity .1s,background .15s;text-decoration:none}
+.bu-btn.primary{background:${T.tealMid};color:#1B2B2B}.bu-btn.primary:hover{background:${T.teal}}
 .bu-btn.primary:disabled{opacity:.4;cursor:not-allowed}
 .bu-btn.secondary{background:${T.white};color:${T.inkMid};border:1.5px solid ${T.border}}.bu-btn.secondary:hover{border-color:${T.tealBorder};color:${T.teal}}
 .bu-info{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border-radius:10px;margin-bottom:20px;font-size:13px;line-height:1.6}
@@ -356,9 +350,9 @@ const css = `
 .bu-info strong{font-weight:600}
 .bu-info-icon{font-size:17px;flex-shrink:0;margin-top:1px}
 .bu-success{display:flex;flex-direction:column;align-items:center;text-align:center;padding:60px 40px}
-.bu-success-ring{width:110px;height:110px;border-radius:50%;background:${T.tealMid};display:flex;align-items:center;justify-content:center;font-size:52px;color:#fff;margin-bottom:28px;animation:popIn .35s cubic-bezier(.175,.885,.32,1.275)}
+.bu-success-ring{width:110px;height:110px;border-radius:50%;background:${T.tealMid};display:flex;align-items:center;justify-content:center;font-size:52px;color:#1B2B2B;margin-bottom:28px;animation:popIn .35s cubic-bezier(.175,.885,.32,1.275)}
 @keyframes popIn{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
-.bu-success-h{font-family:'Fraunces',serif;font-size:30px;font-weight:300;color:${T.ink};margin-bottom:10px}
+.bu-success-h{font-family:var(--font-jakarta),serif;font-size:30px;font-weight:300;color:${T.ink};margin-bottom:10px}
 .bu-success-h em{font-style:italic;color:${T.tealMid}}
 .bu-success-sub{font-size:14px;color:${T.inkLight};line-height:1.6;max-width:420px;margin-bottom:36px}
 .bu-success-cards{display:flex;gap:16px;margin-bottom:36px}
@@ -371,6 +365,6 @@ const css = `
 .bu-uploading-title{font-size:18px;font-weight:600;color:${T.ink}}
 .bu-uploading-sub{font-size:13px;color:${T.inkLight}}
 .bu-filter-tabs{display:flex;gap:4px;background:${T.surface};border-radius:10px;padding:4px;border:1px solid ${T.border}}
-.bu-filter-tab{padding:6px 14px;border-radius:7px;border:none;background:none;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;color:${T.inkLight};cursor:pointer}
+.bu-filter-tab{padding:6px 14px;border-radius:7px;border:none;background:none;font-family:var(--font-jakarta),sans-serif;font-size:12px;font-weight:500;color:${T.inkLight};cursor:pointer}
 .bu-filter-tab.active{background:${T.white};color:${T.teal};box-shadow:0 1px 3px rgba(0,0,0,.07)}
 `

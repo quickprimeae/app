@@ -158,10 +158,9 @@ export default function LiveCameraCapture({
   )
 }
 
-const TEAL = '#0F6E56'
-const TEAL_MID = '#1D9E75'
-const TEAL_LIGHT = '#E1F5EE'
-const TEAL_DARK = '#085041'
+import { PICKER } from '@/lib/theme'
+
+const { TEAL, TEAL_MID, TEAL_LIGHT, TEAL_DARK } = PICKER
 
 function css(height: number) {
   return `
@@ -187,9 +186,9 @@ function css(height: number) {
   .lc-block-msg { font-size: 13px; color: #963B3B; line-height: 1.5; max-width: 260px; }
   .lc-btn {
     width: 100%; padding: 18px; border-radius: 14px; border: none; background: #e5e7eb; color: ${TEAL_DARK};
-    font-family: 'DM Sans', sans-serif; font-size: 16px; font-weight: 600; cursor: pointer; transition: transform 0.1s, opacity 0.1s;
+    font-family: var(--font-jakarta), sans-serif; font-size: 16px; font-weight: 600; cursor: pointer; transition: transform 0.1s, opacity 0.1s;
   }
-  .lc-btn.primary { background: ${TEAL_MID}; color: #fff; }
+  .lc-btn.primary { background: ${TEAL_MID}; color: #1B2B2B; }
   .lc-btn:active { transform: scale(0.97); }
   .lc-btn:disabled { opacity: 0.5; cursor: not-allowed; }
   `
