@@ -65,6 +65,7 @@ export default function DashboardClient({
   const [selected, setSelected] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const inFlight = useRef<AbortController | null>(null)
 
   useEffect(() => {
     setNow(new Date())
@@ -73,14 +74,24 @@ export default function DashboardClient({
   }, [])
 
   const refresh = useCallback(async () => {
+    // In-flight guard: abort any prior fetch before starting a new one, so a
+    // slow /api/attendance can't queue behind itself when triggers overlap
+    // (realtime + focus + fallback). Latest request always wins.
+    inFlight.current?.abort()
+    const controller = new AbortController()
+    inFlight.current = controller
     setRefreshing(true)
     try {
-      const res = await fetch('/api/attendance', { cache: 'no-store' })
+      const res = await fetch('/api/attendance', { cache: 'no-store', signal: controller.signal })
       if (res.ok) setData(await res.json())
     } catch {
-      /* keep last good data */
+      /* aborted or network error — keep last good data */
     } finally {
-      setRefreshing(false)
+      // Only the latest request clears the flag (an aborted one must not).
+      if (inFlight.current === controller) {
+        inFlight.current = null
+        setRefreshing(false)
+      }
     }
   }, [])
 
@@ -90,9 +101,12 @@ export default function DashboardClient({
     refreshTimer.current = setTimeout(refresh, 600)
   }, [refresh])
 
-  // Poll fallback + refresh on focus.
+  // Realtime (below) is the primary live channel; this is only a slow fallback
+  // for time-based status drift (e.g. ready -> absent as a shift start passes)
+  // and rare locations/employees edits that realtime doesn't watch. Was 15s —
+  // raised to 60s to stop the poll pile-up on Hobby concurrency.
   useEffect(() => {
-    const poll = setInterval(refresh, 15000)
+    const poll = setInterval(refresh, 60000)
     const onFocus = () => refresh()
     window.addEventListener('focus', onFocus)
     return () => {
