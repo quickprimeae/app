@@ -6,22 +6,9 @@
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import type { LocationRow } from '@/lib/locations-data'
+import LocationsMap from './LocationsMap'
 
 import { T } from '@/lib/theme'
-
-function pinColor(status: string) {
-  if (status === 'active') return T.tealBright
-  if (status === 'noshow') return T.red
-  if (status === 'late') return T.amber
-  return T.dimMid
-}
-const LAT_MIN = 24.9, LAT_MAX = 25.4, LNG_MIN = 55.0, LNG_MAX = 55.55
-function toPixel(lat: number, lng: number, W: number, H: number): [number, number] {
-  const x = ((lng - LNG_MIN) / (LNG_MAX - LNG_MIN)) * W
-  const y = ((LAT_MAX - lat) / (LAT_MAX - LAT_MIN)) * H
-  return [x, y]
-}
-const MAP_W = 600, MAP_H = 340
 
 type Client = { id: string; name: string }
 type Filter = 'all' | 'active' | 'late' | 'noshow'
@@ -180,26 +167,12 @@ export default function LocationsClient({ initial, clients }: { initial: Locatio
 
           <div className="lp-right">
             <div className="lp-map-area">
-              <div className="lp-map-bg" />
+              <LocationsMap
+                locations={ALL}
+                selected={selected}
+                onSelect={(id) => setSelected(selected === id ? null : id)}
+              />
               <div className="lp-map-label">📍 Dubai — {ALL.length} locations</div>
-              <svg width={MAP_W} height={MAP_H} style={{ position: 'absolute', inset: 0, margin: 'auto' }}>
-                <line x1={0} y1={MAP_H * 0.5} x2={MAP_W} y2={MAP_H * 0.5} stroke={T.border} strokeWidth={1} />
-                <line x1={MAP_W * 0.45} y1={0} x2={MAP_W * 0.45} y2={MAP_H} stroke={T.border} strokeWidth={1} />
-                <rect x={0} y={MAP_H * 0.82} width={MAP_W} height={MAP_H * 0.18} fill={T.tealFaint} opacity={0.6} />
-                <text x={MAP_W * 0.5} y={MAP_H * 0.91} textAnchor="middle" fontSize={10} fill={T.dimMid} fontFamily="DM Mono">Arabian Gulf</text>
-                {ALL.map((loc) => {
-                  const [px, py] = toPixel(loc.lat, loc.lng, MAP_W, MAP_H)
-                  const col = pinColor(loc.status)
-                  const isSel = selected === loc.id
-                  return (
-                    <g key={loc.id} style={{ cursor: 'pointer' }} onClick={() => setSelected(selected === loc.id ? null : loc.id)}>
-                      {isSel && <circle cx={px} cy={py} r={18} fill={col} opacity={0.15} />}
-                      <circle cx={px} cy={py} r={isSel ? 8 : 6} fill={col} stroke={T.bg} strokeWidth={2} />
-                      {isSel && <text x={px} y={py - 14} textAnchor="middle" fontSize={9} fill={T.white} style={{ fontFamily: 'DM Mono' }}>{loc.chain ?? loc.name.split(' ')[0]}</text>}
-                    </g>
-                  )
-                })}
-              </svg>
               <div className="lp-map-legend">
                 {[{ color: T.tealBright, label: 'Active' }, { color: T.amber, label: 'Late' }, { color: T.red, label: 'No-show' }, { color: T.dimMid, label: 'No shift' }].map((l) => (
                   <div key={l.label} className="lp-legend-item"><div className="lp-legend-dot" style={{ background: l.color }} />{l.label}</div>
@@ -338,10 +311,13 @@ const css = `
 .lp-status-dot-label.late{background:${T.amberBg};color:${T.amber};border:1px solid #FCD34D}
 .lp-status-dot-label.noshift{background:${T.bgSubtle};color:${T.dimMid};border:1px solid ${T.border}}
 .lp-attendance{font-family:'DM Mono',monospace;font-size:12px;color:${T.tealText};margin-top:4px}
-.lp-map-area{flex:1;background:${T.bgSubtle};border-bottom:1px solid ${T.border};position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center}
-.lp-map-bg{position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 39px,${T.border} 39px,${T.border} 40px),repeating-linear-gradient(90deg,transparent,transparent 39px,${T.border} 39px,${T.border} 40px);opacity:.4}
-.lp-map-label{position:absolute;top:16px;left:16px;font-family:'DM Mono',monospace;font-size:11px;color:${T.dim};background:${T.bgCard};padding:5px 10px;border-radius:6px;border:1px solid ${T.border}}
-.lp-map-legend{position:absolute;bottom:16px;right:16px;background:${T.bgCard};border:1px solid ${T.border};border-radius:8px;padding:10px 14px;display:flex;flex-direction:column;gap:6px}
+.lp-map-area{flex:1;background:${T.bgSubtle};border-bottom:1px solid ${T.border};position:relative;overflow:hidden}
+.lp-map-canvas{position:absolute;inset:0;width:100%;height:100%}
+.lp-map-state{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:${T.dim};font-size:13px;background:${T.bgSubtle};text-align:center;padding:24px;z-index:6}
+.lp-map-spinner{width:22px;height:22px;border-radius:50%;border:2px solid ${T.border};border-top-color:${T.tealBright};animation:lp-spin .8s linear infinite}
+@keyframes lp-spin{to{transform:rotate(360deg)}}
+.lp-map-label{position:absolute;top:16px;left:16px;z-index:5;font-family:'DM Mono',monospace;font-size:11px;color:${T.dim};background:${T.bgCard};padding:5px 10px;border-radius:6px;border:1px solid ${T.border}}
+.lp-map-legend{position:absolute;bottom:16px;right:16px;z-index:5;background:${T.bgCard};border:1px solid ${T.border};border-radius:8px;padding:10px 14px;display:flex;flex-direction:column;gap:6px}
 .lp-legend-item{display:flex;align-items:center;gap:7px;font-size:11px;color:${T.dim}}
 .lp-legend-dot{width:10px;height:10px;border-radius:50%}
 .lp-detail{height:280px;border-top:1px solid ${T.border};overflow-y:auto;padding:18px 22px;background:${T.bgCard}}
