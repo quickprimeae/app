@@ -75,11 +75,11 @@ export default function DashboardShell({ children }: { children: React.ReactNode
       <style>{css}</style>
       <div className={`shell ${collapsed ? 'collapsed' : ''}`}>
         <button
-          className="shell-hamburger"
+          className={`shell-hamburger ${mobileOpen ? 'is-hidden' : ''}`}
           aria-label="Open navigation"
-          onClick={() => setMobileOpen((o) => !o)}
+          onClick={() => setMobileOpen(true)}
         >
-          {mobileOpen ? '✕' : '☰'}
+          ☰
         </button>
 
         {mobileOpen && <div className="shell-scrim" onClick={() => setMobileOpen(false)} />}
@@ -87,12 +87,21 @@ export default function DashboardShell({ children }: { children: React.ReactNode
         <aside className={`shell-sidebar ${mobileOpen ? 'open' : ''}`}>
           <div className="shell-brand">
             <Link href="/dashboard" className="shell-logo">{collapsed ? 'OP' : 'OPSPRO'}</Link>
+            {/* Desktop: collapse/expand toggle (stays visible when collapsed). */}
             <button
               className="shell-collapse"
               aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
               onClick={() => setCollapsed((c) => !c)}
             >
               {collapsed ? '»' : '«'}
+            </button>
+            {/* Mobile only: close the overlay (top-right, clear of the wordmark). */}
+            <button
+              className="shell-close"
+              aria-label="Close navigation"
+              onClick={() => setMobileOpen(false)}
+            >
+              ✕
             </button>
           </div>
 
@@ -141,7 +150,11 @@ const css = `
 .shell-logo { font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 500; color: ${T.tealBright}; letter-spacing: 0.06em; text-decoration: none; white-space: nowrap; }
 .shell-collapse { background: none; border: 1px solid ${T.border}; color: ${T.dim}; width: 24px; height: 24px; border-radius: 6px; cursor: pointer; font-size: 13px; line-height: 1; flex-shrink: 0; transition: color 0.12s, border-color 0.12s; }
 .shell-collapse:hover { color: ${T.tealBright}; border-color: ${T.teal}; }
-.shell.collapsed .shell-collapse { display: none; }
+.shell-close { display: none; background: none; border: 1px solid ${T.border}; color: ${T.dim}; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 13px; line-height: 1; flex-shrink: 0; align-items: center; justify-content: center; transition: color 0.12s, border-color 0.12s; }
+.shell-close:hover { color: ${T.tealBright}; border-color: ${T.teal}; }
+/* Collapsed desktop rail: hide the wordmark but KEEP the » expand toggle visible
+   so collapse is reversible (was display:none here — the one-way-door bug). */
+.shell.collapsed .shell-logo { display: none; }
 .shell.collapsed .shell-brand { justify-content: center; padding: 16px 0 14px; }
 .shell-nav { flex: 1; padding: 18px 0; }
 .shell-nav-section { padding: 0 12px; margin-bottom: 24px; }
@@ -170,6 +183,14 @@ const css = `
   .shell.collapsed .shell-nav-item { justify-content: flex-start; padding: 9px 10px; }
   .shell-collapse { display: none; }
   .shell.collapsed .shell-collapse { display: none; }
+  /* Overlay header: wordmark left, X right (no overlap with OPSPRO). Show the
+     close button; hide the hamburger while open; and if a collapsed desktop
+     state carried across the breakpoint, re-show the wordmark and restore the
+     space-between brand so the overlay header isn't centered/logoless. */
+  .shell-close { display: inline-flex; }
+  .shell-hamburger.is-hidden { display: none; }
+  .shell.collapsed .shell-logo { display: inline; }
+  .shell.collapsed .shell-brand { justify-content: space-between; padding: 16px 16px 14px; }
   .shell-scrim { display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 290; }
   .shell-hamburger {
     display: flex; align-items: center; justify-content: center;
