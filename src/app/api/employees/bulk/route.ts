@@ -1,8 +1,10 @@
 // src/app/api/employees/bulk/route.ts
 // Ops-only. POST { rows: [...] } — creates many employees from a parsed CSV.
-// Columns: name, phone, nationality, shift_type, monthly_salary, shift_days,
-// joining_date, location, vendor, branch. vendor is 'Al Jasar' or 'SkillSet'
-// and maps to employees.vendor_id; the supervisor is DERIVED from the vendor
+// Columns: name, phone, nationality, shift_type, shift_days, joining_date,
+// location, vendor, branch. Salary is NOT in the CSV — every imported row gets
+// BULK_PLACEHOLDER_SALARY (the real figure is entered post-onboarding in the
+// super-admin dashboard). vendor is 'Al Jasar' or 'SkillSet' and maps to
+// employees.vendor_id; the supervisor is DERIVED from the vendor
 // (vendors.supervisor_name), never entered here. hourly_rate is derived
 // (monthly_salary / 26 / shift_hours). Shift start/end are NOT set — pickers
 // inherit the location defaults. PIN setup links are NOT sent here — invite
@@ -11,7 +13,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase'
 import { getOpsContext } from '@/lib/ops'
-import { hourlyRateFromSalary } from '@/lib/salary'
+import { hourlyRateFromSalary, BULK_PLACEHOLDER_SALARY } from '@/lib/salary'
 import { normalizePhone } from '@/lib/phone'
 
 type InRow = {
@@ -19,7 +21,7 @@ type InRow = {
   phone?: string
   nationality?: string
   shift_type?: string
-  monthly_salary?: string | number
+  // monthly_salary is no longer a CSV column — a placeholder is written instead.
   shift_days?: string
   joining_date?: string
   location?: string
@@ -116,9 +118,10 @@ export async function POST(req: NextRequest) {
       const shiftType = clean(r.shift_type).toLowerCase()
       if (shiftType !== '8h' && shiftType !== '10h') { err('shift_type must be 8h or 10h', phone); continue }
 
-      const monthlyRaw = clean(r.monthly_salary)
-      const hourly_rate = hourlyRateFromSalary(monthlyRaw as any, shiftType)
-      if (hourly_rate == null) { err('monthly_salary must be a positive number', phone); continue }
+      // Salary is NOT collected in the CSV. Write an intentionally-flagged
+      // placeholder (the real figure is entered post-onboarding in the
+      // super-admin dashboard). hourly_rate is derived from the same placeholder.
+      const hourly_rate = hourlyRateFromSalary(BULK_PLACEHOLDER_SALARY, shiftType)
 
       // Location is OPTIONAL. If given it must match a real location; if blank
       // the employee is created unassigned (assign later from the Employees tab).
@@ -157,7 +160,7 @@ export async function POST(req: NextRequest) {
           location_id: loc ? loc.id : null,
           vendor_id,
           hourly_rate,
-          monthly_salary: Number(monthlyRaw),
+          monthly_salary: BULK_PLACEHOLDER_SALARY,
           shift_type: shiftType,
           shift_days: clean(r.shift_days) || null,
           branch: clean(r.branch) || null,

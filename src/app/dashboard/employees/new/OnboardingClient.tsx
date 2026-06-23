@@ -9,6 +9,7 @@
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { normalizePhone } from '@/lib/phone'
+import { BULK_PLACEHOLDER_SALARY } from '@/lib/salary'
 
 import { LT as T } from '@/lib/theme'
 
@@ -24,10 +25,10 @@ const STEPS_META = [
 
 // DEMO: pay is hidden in the UI, but the create API still requires a positive
 // monthly_salary (it derives hourly_rate from it). When the (now-hidden) salary
-// field is left empty, we submit this placeholder so onboarding still works
-// without changing API logic. To restore real pay entry: un-hide the salary
-// input in step 1 and drop this fallback.
-const DEMO_HIDDEN_SALARY = 2080
+// field is left empty, we submit BULK_PLACEHOLDER_SALARY — the SAME intentional
+// stand-in the bulk CSV import writes (see @/lib/salary). The real figure is
+// entered post-onboarding in the super-admin dashboard. To restore real pay
+// entry: un-hide the salary input in step 1 and drop this fallback.
 
 const EMPTY = {
   firstName: '', lastName: '', phone: '', empId: '', nationality: '', startDate: '',
@@ -81,7 +82,7 @@ export default function OnboardingClient({ tenantId, locations, supervisors }: {
           nationality: data.nationality || null,
           location_id: null, // assigned later from the Employees tab
           supervisor_id: data.supervisorId || null,
-          monthly_salary: Number(data.monthlySalary) || DEMO_HIDDEN_SALARY,
+          monthly_salary: Number(data.monthlySalary) || BULK_PLACEHOLDER_SALARY,
           shift_type: data.shiftType,
           shift_days: data.shiftDays,
           branch: data.branch || null,

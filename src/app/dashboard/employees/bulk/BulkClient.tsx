@@ -16,7 +16,6 @@ const COLUMNS = [
   { key: 'phone', required: true, desc: '05XXXXXXXX or +9715XXXXXXXX' },
   { key: 'nationality', required: false, desc: 'e.g. Philippines' },
   { key: 'shift_type', required: true, desc: '8h or 10h' },
-  { key: 'monthly_salary', required: true, desc: 'Number (AED/month)' },
   { key: 'shift_days', required: false, desc: 'e.g. Mon-Fri' },
   { key: 'joining_date', required: true, desc: 'YYYY-MM-DD or DD/MM/YYYY' },
   { key: 'location', required: false, desc: 'Optional — exact DB location name' },
@@ -24,8 +23,8 @@ const COLUMNS = [
   { key: 'branch', required: false, desc: 'Branch label (reference)' },
 ]
 const SAMPLE_ROWS = [
-  ['Ahmed Al Rashidi', '501234567', 'UAE', '8h', '2080', 'Mon-Sat', '2026-06-01', 'SP_NAS', 'Al Jasar', 'NAS'],
-  ['Maria Santos', '509876543', 'Philippines', '10h', '2600', 'Mon-Sat', '2026-06-01', 'SP_DSO', 'SkillSet', 'DSO'],
+  ['Ahmed Al Rashidi', '501234567', 'UAE', '8h', 'Mon-Sat', '2026-06-01', 'SP_NAS', 'Al Jasar', 'NAS'],
+  ['Maria Santos', '509876543', 'Philippines', '10h', 'Mon-Sat', '2026-06-01', 'SP_DSO', 'SkillSet', 'DSO'],
 ]
 
 type Row = Record<string, string> & { _row: number; _errors: string[]; _status: 'valid' | 'error' }
@@ -57,9 +56,8 @@ function validateRow(row: Record<string, string>): string[] {
   if (!st) errors.push('Missing shift_type')
   else if (st !== '8h' && st !== '10h') errors.push('shift_type must be 8h or 10h')
 
-  const salary = clean(row.monthly_salary)
-  if (!salary) errors.push('Missing monthly_salary')
-  else if (isNaN(parseFloat(salary)) || parseFloat(salary) <= 0) errors.push('monthly_salary must be a positive number')
+  // monthly_salary is no longer a CSV column — the server writes a placeholder
+  // (BULK_PLACEHOLDER_SALARY) for every imported row. Nothing to validate here.
 
   const jd = clean(row.joining_date)
   if (!jd) errors.push('Missing joining_date')
@@ -118,7 +116,7 @@ export default function BulkClient() {
     setView(VIEW.UPLOADING)
     const payload = valid.map((r) => ({
       name: r.name, phone: r.phone, nationality: r.nationality,
-      shift_type: r.shift_type, monthly_salary: r.monthly_salary, shift_days: r.shift_days,
+      shift_type: r.shift_type, shift_days: r.shift_days,
       joining_date: r.joining_date, location: r.location,
       vendor: r.vendor, branch: r.branch,
     }))
@@ -158,10 +156,9 @@ export default function BulkClient() {
             </div>
             <div className="bu-col-list">
               <div className="bu-col-title">CSV column reference</div>
-              {/* monthly_salary hidden from the on-screen reference for the demo. It
-                  stays in COLUMNS so the downloadable template + validator still
-                  include it and imports keep working (importer unchanged). */}
-              {COLUMNS.filter((c) => c.key !== 'monthly_salary').map((c) => (
+              {/* monthly_salary is fully removed from the template + validator;
+                  the server writes a placeholder salary for every imported row. */}
+              {COLUMNS.map((c) => (
                 <div key={c.key} className="bu-col-item"><span className="bu-col-key">{c.key}</span>{c.required && <span className="bu-col-req">req</span>}<span className="bu-col-desc">{c.desc}</span></div>
               ))}
             </div>
