@@ -233,6 +233,21 @@ export default function PickerClockIn() {
     return () => document.body.classList.remove('picker-view')
   }, [])
 
+  // Warm the face-api models early. The weights (~12MB) are STATIC assets from
+  // /models — kicking off the SAME download on mount (phone/PIN step) means
+  // they're usually ready by the selfie step instead of stalling at verify. No
+  // new API calls or server compute. loadFaceModels() is idempotent (guards a
+  // single in-flight/cached promise), so this never double-downloads, and it's
+  // fire-and-forget: if it fails or hasn't finished, computeDescriptor() at
+  // verify falls back to the existing on-demand load. Never blocks the UI.
+  useEffect(() => {
+    let cancelled = false
+    import('@/lib/face')
+      .then((m) => { if (!cancelled) m.loadFaceModels().catch(() => {}) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+
   async function handleIdentify(e: React.FormEvent) {
     e.preventDefault()
     setIdentifyError(null)

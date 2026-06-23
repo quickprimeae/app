@@ -132,11 +132,6 @@ export default function DashboardClient({
   // the right next action lives (image review for face flags, resolve for the
   // rest). No PATCH /api/alerts from the dashboard.
 
-  async function signOut() {
-    await createBrowserSupabaseClient().auth.signOut()
-    router.replace('/login')
-    router.refresh()
-  }
 
   function changeFilter(f: typeof filter) {
     setFilter(f)
@@ -188,7 +183,6 @@ export default function DashboardClient({
               />
             </div>
             <div className="db-avatar" title={opsName}>{initials(opsName)}</div>
-            <button className="db-btn-sm" onClick={signOut}>Sign out</button>
           </div>
         </header>
 
@@ -202,8 +196,7 @@ export default function DashboardClient({
             </div>
             <div className="db-kpi">
               <div className="db-kpi-label">Pickers clocked in</div>
-              <div className="db-kpi-val green">{kpis.clockedIn}</div>
-              <div className="db-kpi-sub">of {kpis.totalPickers} scheduled today</div>
+              <div className="db-kpi-val green">{kpis.clockedIn}/{kpis.totalPickers}</div>
             </div>
             <div className="db-kpi alert">
               <div className="db-kpi-label">No-shows</div>
