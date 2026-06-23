@@ -29,16 +29,13 @@ const NAV: { label: string; items: NavItem[] }[] = [
     items: [
       { icon: '📅', label: 'Roster', href: '/dashboard/roster' },
       { icon: '📥', label: 'Import schedule', href: '/dashboard/roster/import' },
-    ],
-  },
-  {
-    label: 'Payroll',
-    items: [
+      // Moved out of Payroll for the demo — it's a schedule/verification tool.
       { icon: '🕐', label: 'Hours & verification', href: '/dashboard/payroll/hours' },
-      { icon: '🧾', label: 'Invoices', href: '/dashboard/invoices' },
-      { icon: '💰', label: 'Payroll summary', href: '/dashboard/payroll' },
     ],
   },
+  // PAYROLL section hidden for the demo (billing/payroll/money). Invoices and
+  // Payroll summary routes are left in place (src/app/dashboard/invoices,
+  // /payroll) but unlinked from the nav. Restore this block to re-enable.
   {
     label: 'Admin',
     items: [

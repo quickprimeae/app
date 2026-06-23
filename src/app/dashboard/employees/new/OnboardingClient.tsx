@@ -17,22 +17,22 @@ type Sup = { id: string; name: string | null }
 
 const STEPS_META = [
   { label: 'Personal details', desc: 'Name, phone, nationality' },
-  { label: 'Shift & pay', desc: 'Salary, shift, supervisor' },
+  { label: 'Shift', desc: 'Shift type, days, supervisor' },
   { label: 'Reference photo', desc: 'For identity verification' },
   { label: 'Review & confirm', desc: 'Check before creating' },
 ]
+
+// DEMO: pay is hidden in the UI, but the create API still requires a positive
+// monthly_salary (it derives hourly_rate from it). When the (now-hidden) salary
+// field is left empty, we submit this placeholder so onboarding still works
+// without changing API logic. To restore real pay entry: un-hide the salary
+// input in step 1 and drop this fallback.
+const DEMO_HIDDEN_SALARY = 2080
 
 const EMPTY = {
   firstName: '', lastName: '', phone: '', empId: '', nationality: '', startDate: '',
   locationId: '', monthlySalary: '', shiftType: '8h' as '8h' | '10h', shiftDays: 'Mon-Fri',
   supervisorId: '', branch: '', photoUrl: '', photoFile: null as File | null,
-}
-// hourly_rate is derived on the backend: monthly_salary / 26 / shift_hours.
-function previewHourly(monthlySalary: string, shiftType: string): string {
-  const s = parseFloat(monthlySalary)
-  const h = shiftType === '10h' ? 10 : 8
-  if (!Number.isFinite(s) || s <= 0) return '—'
-  return `AED ${(Math.round((s / 26 / h) * 100) / 100).toFixed(2)}/hr`
 }
 
 export default function OnboardingClient({ tenantId, locations, supervisors }: { tenantId: string; locations: Loc[]; supervisors: Sup[] }) {
@@ -62,7 +62,7 @@ export default function OnboardingClient({ tenantId, locations, supervisors }: {
 
   function canAdvance() {
     if (step === 0) return data.firstName && data.lastName && phoneValid && data.startDate
-    if (step === 1) return data.monthlySalary && data.shiftType
+    if (step === 1) return !!data.shiftType // pay hidden for demo; don't block on salary
     return true
   }
 
@@ -81,7 +81,7 @@ export default function OnboardingClient({ tenantId, locations, supervisors }: {
           nationality: data.nationality || null,
           location_id: null, // assigned later from the Employees tab
           supervisor_id: data.supervisorId || null,
-          monthly_salary: Number(data.monthlySalary),
+          monthly_salary: Number(data.monthlySalary) || DEMO_HIDDEN_SALARY,
           shift_type: data.shiftType,
           shift_days: data.shiftDays,
           branch: data.branch || null,
@@ -176,20 +176,17 @@ export default function OnboardingClient({ tenantId, locations, supervisors }: {
 
                 {step === 1 && (
                   <div className="ob-form">
-                    <div className="ob-row triple">
-                      <Field label="Monthly salary (AED)" required><input className="ob-input" type="number" placeholder="2080" value={data.monthlySalary} onChange={(e) => onChange('monthlySalary', e.target.value)} /></Field>
+                    {/* Pay hidden for demo: Monthly salary + Hourly-rate inputs removed
+                        (and the pay info box). shift_type stays — it's schedule data. */}
+                    <div className="ob-row">
                       <Field label="Shift type" required><select className="ob-select" value={data.shiftType} onChange={(e) => onChange('shiftType', e.target.value)}><option value="8h">8h</option><option value="10h">10h</option></select></Field>
-                      <Field label="Hourly rate" hint="Auto-calculated"><input className="ob-input" readOnly value={previewHourly(data.monthlySalary, data.shiftType)} style={{ background: '#eef3f1', color: T.inkLight }} /></Field>
-                    </div>
-                    <div className="ob-row">
                       <Field label="Shift days"><select className="ob-select" value={data.shiftDays} onChange={(e) => onChange('shiftDays', e.target.value)}>{['Mon-Fri', 'Mon-Sat', 'Sun-Thu', '7 days'].map((d) => <option key={d} value={d}>{d}</option>)}</select></Field>
-                      <Field label="Supervisor"><select className="ob-select" value={data.supervisorId} onChange={(e) => onChange('supervisorId', e.target.value)}><option value="">Assign supervisor</option>{supervisors.map((s) => <option key={s.id} value={s.id}>{s.name ?? s.id}</option>)}</select></Field>
                     </div>
                     <div className="ob-row">
+                      <Field label="Supervisor"><select className="ob-select" value={data.supervisorId} onChange={(e) => onChange('supervisorId', e.target.value)}><option value="">Assign supervisor</option>{supervisors.map((s) => <option key={s.id} value={s.id}>{s.name ?? s.id}</option>)}</select></Field>
                       <Field label="Branch" hint="Optional branch label"><input className="ob-input" placeholder="e.g. MOE" value={data.branch} onChange={(e) => onChange('branch', e.target.value)} /></Field>
-                      <div />
                     </div>
-                    <div className="ob-info-box teal"><span className="ob-info-box-icon">🕒</span><div className="ob-info-box-text">Hourly rate = monthly salary ÷ 26 ÷ shift hours (8 or 10), calculated on save. Assign a location later from the Employees tab — they can&apos;t clock in until they have one.</div></div>
+                    <div className="ob-info-box teal"><span className="ob-info-box-icon">🕒</span><div className="ob-info-box-text">Assign a location later from the Employees tab — they can&apos;t clock in until they have one.</div></div>
                   </div>
                 )}
 
@@ -220,7 +217,6 @@ export default function OnboardingClient({ tenantId, locations, supervisors }: {
                           <span className="ob-badge" style={{ background: T.amberLight, color: T.amber, borderColor: '#FAC775' }}>📍 No location yet</span>
                           {data.shiftDays && <span className="ob-badge">📅 {data.shiftDays}</span>}
                           {data.shiftType && <span className="ob-badge">🕒 {data.shiftType}</span>}
-                          {data.monthlySalary && <span className="ob-badge">💰 AED {data.monthlySalary}/mo</span>}
                         </div>
                       </div>
                     </div>
@@ -229,8 +225,6 @@ export default function OnboardingClient({ tenantId, locations, supervisors }: {
                         ['Mobile', data.phone || '—'], ['Nationality', data.nationality || '—'], ['Start date', data.startDate || '—'],
                         ['Location', 'Assign from Employees tab'], ['Shift days', data.shiftDays || '—'],
                         ['Shift type', data.shiftType || '—'],
-                        ['Monthly salary', data.monthlySalary ? `AED ${data.monthlySalary}/mo` : '—'],
-                        ['Hourly rate', previewHourly(data.monthlySalary, data.shiftType)],
                         ['Supervisor', supervisors.find((s) => s.id === data.supervisorId)?.name ?? 'Unassigned'],
                         ['Reference photo', data.photoUrl ? '✓ Uploaded' : '⚠ Not uploaded'],
                       ].map(([k, v]) => <tr key={k}><td>{k}</td><td>{v}</td></tr>)}
@@ -257,7 +251,7 @@ export default function OnboardingClient({ tenantId, locations, supervisors }: {
                 <div className="ob-success-details">
                   <div className="ob-success-stat"><div className="ob-success-stat-val">{result?.employee_number || 'QP-AUTO'}</div><div className="ob-success-stat-label">Employee ID</div></div>
                   <div className="ob-success-stat"><div className="ob-success-stat-val" style={{ color: T.amber, fontSize: 15 }}>Assign next</div><div className="ob-success-stat-label">Location</div></div>
-                  <div className="ob-success-stat"><div className="ob-success-stat-val">AED {data.monthlySalary || '—'}</div><div className="ob-success-stat-label">Monthly salary · {data.shiftType}</div></div>
+                  <div className="ob-success-stat"><div className="ob-success-stat-val">{data.shiftType}</div><div className="ob-success-stat-label">Shift type</div></div>
                 </div>
                 <div style={{ display: 'flex', gap: 12 }}>
                   <button className="ob-btn primary" onClick={reset}>+ Add another employee</button>

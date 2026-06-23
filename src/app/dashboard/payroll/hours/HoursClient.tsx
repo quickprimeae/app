@@ -4,7 +4,6 @@
 // dispute actions wired to /api/shifts.
 
 import { useState, useEffect, useCallback } from 'react'
-import Link from 'next/link'
 
 import { T } from '@/lib/theme'
 
@@ -104,7 +103,7 @@ export default function HoursClient() {
             <select className="hv-select" value={year} onChange={(e) => setYear(Number(e.target.value))}>
               {[today.y, today.y - 1].map((y) => <option key={y} value={y}>{y}</option>)}
             </select>
-            <Link href="/dashboard/payroll" className="hv-btn ghost">Payroll summary →</Link>
+            {/* 'Payroll summary →' link removed for demo (payroll unlinked). */}
           </div>
         </header>
 
@@ -113,7 +112,7 @@ export default function HoursClient() {
             <div className="hv-stat"><div className="hv-stat-val" style={{ color: T.white }}>{stats.total}</div><div className="hv-stat-label">Shifts this month</div></div>
             <div className="hv-stat"><div className="hv-stat-val" style={{ color: stats.review ? T.amber : T.tealBright }}>{stats.review}</div><div className="hv-stat-label">Need review</div></div>
             <div className="hv-stat"><div className="hv-stat-val" style={{ color: T.tealBright }}>{stats.hours}</div><div className="hv-stat-label">Total hours</div></div>
-            <div className="hv-stat"><div className="hv-stat-val" style={{ color: T.tealBright }}>AED {stats.gross.toLocaleString()}</div><div className="hv-stat-label">Gross pay</div></div>
+            {/* 'Gross pay' stat hidden for demo. stats.gross still computed. */}
           </div>
 
           <div className="hv-filters">
@@ -124,10 +123,10 @@ export default function HoursClient() {
 
           <div className="hv-table-wrap">
             <table className="hv-table">
-              <thead><tr><th>Employee</th><th>Location</th><th>Date</th><th>Clock in</th><th>Clock out</th><th>Hours</th><th>Gross</th><th>Status</th><th>Actions</th></tr></thead>
+              <thead><tr><th>Employee</th><th>Location</th><th>Date</th><th>Clock in</th><th>Clock out</th><th>Hours</th><th>Status</th><th>Actions</th></tr></thead>
               <tbody>
-                {loading && <tr><td colSpan={9} style={{ textAlign: 'center', padding: 40, color: T.dim }}>Loading…</td></tr>}
-                {!loading && shown.length === 0 && <tr><td colSpan={9} style={{ textAlign: 'center', padding: 40, color: T.dim }}>No shifts for this period / filter.</td></tr>}
+                {loading && <tr><td colSpan={8} style={{ textAlign: 'center', padding: 40, color: T.dim }}>Loading…</td></tr>}
+                {!loading && shown.length === 0 && <tr><td colSpan={8} style={{ textAlign: 'center', padding: 40, color: T.dim }}>No shifts for this period / filter.</td></tr>}
                 {!loading && shown.map((s) => (
                   <tr key={s.id} className={s.needs_review ? 'review' : ''}>
                     <td>{s.employee ? `${s.employee.first_name} ${s.employee.last_name}` : '—'}<div className="hv-sub">{s.employee?.employee_number}</div></td>
@@ -136,7 +135,7 @@ export default function HoursClient() {
                     <td className="hv-mono">{fmtTime(s.clock_in_time)}</td>
                     <td className="hv-mono">{s.clock_out_time ? fmtTime(s.clock_out_time) : <span style={{ color: T.amber }}>missing</span>}{s.is_auto_clockout && <span className="hv-auto">auto</span>}</td>
                     <td className="hv-mono">{(s.hours_final ?? s.hours_raw ?? 0)}h</td>
-                    <td className="hv-mono">AED {Math.round(s.gross_pay ?? (s.hours_final ?? 0) * (s.hourly_rate ?? 0))}</td>
+                    {/* 'Gross' cell hidden for demo (pay). gross_pay/hourly_rate still on the row. */}
                     <td><span className={`hv-badge ${s.status}`}>{s.status}</span></td>
                     <td>
                       <div className="hv-actions">

@@ -119,9 +119,9 @@ export default function EmployeesClient({ initial, locations }: { initial: Emplo
   } as Record<string, number>
 
   function exportCsv() {
-    const headers = ['Employee ID', 'Name', 'Phone', 'Location', 'Client', 'Status', 'Rate', 'Hours (mo)', 'Active']
+    const headers = ['Employee ID', 'Name', 'Phone', 'Location', 'Client', 'Status', 'Hours (mo)', 'Active']
     const lines = filtered.map((e) =>
-      [e.empId, e.name, e.phone, e.location, e.client ?? '', e.status, e.hourlyRate, e.hoursThisMonth, e.active ? 'yes' : 'no']
+      [e.empId, e.name, e.phone, e.location, e.client ?? '', e.status, e.hoursThisMonth, e.active ? 'yes' : 'no']
         .map((v) => `"${String(v).replace(/"/g, '""')}"`)
         .join(',')
     )
@@ -327,14 +327,14 @@ export default function EmployeesClient({ initial, locations }: { initial: Emplo
                     <th onClick={() => toggleSort('location')}>Location {sortIcon('location')}</th>
                     <th onClick={() => toggleSort('branch')}>Branch {sortIcon('branch')}</th>
                     <th onClick={() => toggleSort('clockedInAt')}>Clocked in {sortIcon('clockedInAt')}</th>
-                    <th onClick={() => toggleSort('hourlyRate')}>Rate {sortIcon('hourlyRate')}</th>
+                    {/* Rate column hidden for demo (pay). Data still in EmployeeRow. */}
                     <th onClick={() => toggleSort('hoursThisMonth')}>Hours (mo.) {sortIcon('hoursThisMonth')}</th>
                     <th>Photo</th>
                   </tr>
                 </thead>
                 <tbody>
                   {pageRows.length === 0 && (
-                    <tr><td colSpan={8} style={{ textAlign: 'center', padding: 40, color: T.dim }}>No employees match your filters.</td></tr>
+                    <tr><td colSpan={7} style={{ textAlign: 'center', padding: 40, color: T.dim }}>No employees match your filters.</td></tr>
                   )}
                   {pageRows.map((emp) => (
                     <tr key={emp.id} className={selected === emp.id ? 'selected' : ''} onClick={() => setSelected(selected === emp.id ? null : emp.id)} style={{ opacity: emp.active ? 1 : 0.5 }}>
@@ -363,7 +363,6 @@ export default function EmployeesClient({ initial, locations }: { initial: Emplo
                       </td>
                       <td><span style={{ fontSize: 12, color: T.whiteMid }}>{emp.branch ?? '—'}</span></td>
                       <td><span className="ep-mono">{fmt(emp.clockedInAt)}</span></td>
-                      <td><span className="ep-mono">AED {emp.hourlyRate}</span></td>
                       <td><span className="ep-mono">{emp.hoursThisMonth}h</span></td>
                       <td>{emp.hasPhoto ? <span className="ep-badge active">✓ set</span> : <span className="ep-badge nophoto">missing</span>}</td>
                     </tr>
@@ -414,7 +413,7 @@ export default function EmployeesClient({ initial, locations }: { initial: Emplo
                       { label: 'Branch', val: selectedEmp.branch ?? '—' },
                       { label: 'Supervisor', val: selectedEmp.supervisor ?? 'Unassigned' },
                       { label: 'Shift', val: `${selectedEmp.shiftHours} · ${selectedEmp.shiftDays ?? '—'}${selectedEmp.personalShift ? ' (personal)' : ' (location default)'}` },
-                      { label: 'Hourly rate', val: `AED ${selectedEmp.hourlyRate}/hr`, mono: true },
+                      // 'Hourly rate' cell hidden for demo (pay). Value still on selectedEmp.
                       { label: 'PIN', val: selectedEmp.pinSet ? '✓ set up' : '⚠ not set' },
                     ].map((c) => (
                       <div key={c.label} className="ep-detail-cell">
@@ -433,10 +432,7 @@ export default function EmployeesClient({ initial, locations }: { initial: Emplo
                       <div className="ep-detail-cell-val mono" style={{ color: T.tealBright }}>{selectedEmp.hoursThisMonth}h</div>
                       <div className="ep-hours-bar"><div className="ep-hours-fill" style={{ width: `${Math.min(100, (selectedEmp.hoursThisMonth / 220) * 100)}%` }} /></div>
                     </div>
-                    <div className="ep-detail-cell">
-                      <div className="ep-detail-cell-label">Earned (gross)</div>
-                      <div className="ep-detail-cell-val mono" style={{ color: T.tealBright }}>AED {selectedEmp.earnedThisMonth.toLocaleString()}</div>
-                    </div>
+                    {/* 'Earned (gross)' cell hidden for demo (pay). earnedThisMonth still computed. */}
                   </div>
                 </div>
 

@@ -158,7 +158,10 @@ export default function BulkClient() {
             </div>
             <div className="bu-col-list">
               <div className="bu-col-title">CSV column reference</div>
-              {COLUMNS.map((c) => (
+              {/* monthly_salary hidden from the on-screen reference for the demo. It
+                  stays in COLUMNS so the downloadable template + validator still
+                  include it and imports keep working (importer unchanged). */}
+              {COLUMNS.filter((c) => c.key !== 'monthly_salary').map((c) => (
                 <div key={c.key} className="bu-col-item"><span className="bu-col-key">{c.key}</span>{c.required && <span className="bu-col-req">req</span>}<span className="bu-col-desc">{c.desc}</span></div>
               ))}
             </div>
@@ -181,7 +184,7 @@ export default function BulkClient() {
                   </div>
                   <button className="bu-dl-btn" onClick={downloadTemplate}>⬇ Download template</button>
                 </div>
-                <div className="bu-info teal"><span className="bu-info-icon">💡</span><div><strong>Tip:</strong> Don&apos;t rename or reorder column headers. <code style={{ fontFamily: 'monospace', fontSize: 12 }}>phone</code> is the UAE mobile without country code (e.g. 501234567); <code style={{ fontFamily: 'monospace', fontSize: 12 }}>hourly rate</code> is derived from <code style={{ fontFamily: 'monospace', fontSize: 12 }}>monthly_salary</code> ÷ 26 ÷ shift hours. Pickers inherit their location&apos;s shift times.</div></div>
+                <div className="bu-info teal"><span className="bu-info-icon">💡</span><div><strong>Tip:</strong> Don&apos;t rename or reorder column headers. <code style={{ fontFamily: 'monospace', fontSize: 12 }}>phone</code> is the UAE mobile without country code (e.g. 501234567). Pickers inherit their location&apos;s shift times.</div></div>
                 <div className={`bu-drop-zone ${drag ? 'drag' : ''}`} onDragOver={(e) => { e.preventDefault(); setDrag(true) }} onDragLeave={() => setDrag(false)} onDrop={(e) => { e.preventDefault(); setDrag(false); handleFile(e.dataTransfer.files[0]) }} onClick={() => fileRef.current?.click()}>
                   <div className="bu-drop-icon">📂</div>
                   <div className="bu-drop-title">Drop your CSV here</div>
@@ -214,9 +217,9 @@ export default function BulkClient() {
                 </div>
                 <div className="bu-table-wrap">
                   <table className="bu-table">
-                    <thead><tr><th>#</th><th>Status</th><th>Name</th><th>Phone</th><th>Shift</th><th>Monthly salary</th><th>Location</th><th>Vendor</th><th>Joining</th></tr></thead>
+                    <thead><tr><th>#</th><th>Status</th><th>Name</th><th>Phone</th><th>Shift</th><th>Location</th><th>Vendor</th><th>Joining</th></tr></thead>
                     <tbody>
-                      {displayRows.length === 0 && <tr><td colSpan={9} style={{ textAlign: 'center', padding: 32, color: T.inkLight }}>No rows match this filter.</td></tr>}
+                      {displayRows.length === 0 && <tr><td colSpan={8} style={{ textAlign: 'center', padding: 32, color: T.inkLight }}>No rows match this filter.</td></tr>}
                       {displayRows.map((row, i) => (
                         <tr key={i} className={row._status === 'error' ? 'row-error' : ''}>
                           <td><span className="bu-row-num">Row {row._row}</span></td>
@@ -224,7 +227,6 @@ export default function BulkClient() {
                           <td><strong>{row.name || <span style={{ color: T.red }}>—</span>}</strong></td>
                           <td className="mono">{row.phone || <span style={{ color: T.red }}>—</span>}</td>
                           <td className="mono">{row.shift_type || <span style={{ color: T.red }}>—</span>}</td>
-                          <td className="mono">{row.monthly_salary ? `AED ${row.monthly_salary}` : <span style={{ color: T.red }}>—</span>}</td>
                           <td style={{ fontSize: 12, maxWidth: 160 }}>{row.location || <span style={{ color: T.red }}>—</span>}</td>
                           <td className="mono">{row.vendor || <span style={{ color: T.inkLight }}>—</span>}</td>
                           <td className="mono">{row.joining_date || <span style={{ color: T.red }}>—</span>}</td>
