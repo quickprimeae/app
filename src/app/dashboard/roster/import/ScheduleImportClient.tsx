@@ -48,7 +48,7 @@ function downloadTemplate() {
   // just reports them as unmatched — delete these example rows before use.
   const examples = [
     ['+9715XXXXXXXX', '08:00-19:00', '08:00-19:00', 'OFF', '08:00-17:00', '', 'OFF', '09:00-18:00'],
-    ['QP-0001', '09:00-18:00', 'OFF', '09:00-18:00', '09:00-18:00', '09:00-18:00', 'OFF', 'OFF'],
+    ['OP-0001', '09:00-18:00', 'OFF', '09:00-18:00', '09:00-18:00', '09:00-18:00', 'OFF', 'OFF'],
   ]
   const body = examples.map((r) => r.join(',')).join('\n')
   const url = URL.createObjectURL(new Blob([`${header}\n${body}`], { type: 'text/csv' }))

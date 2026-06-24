@@ -250,7 +250,7 @@ export default function OnboardingClient({ tenantId, locations, supervisors }: {
                   <Link href="/dashboard/employees/invites" style={{ color: T.tealMid, fontWeight: 600 }}>Pending invites</Link>.
                 </div>
                 <div className="ob-success-details">
-                  <div className="ob-success-stat"><div className="ob-success-stat-val">{result?.employee_number || 'QP-AUTO'}</div><div className="ob-success-stat-label">Employee ID</div></div>
+                  <div className="ob-success-stat"><div className="ob-success-stat-val">{result?.employee_number || 'OP-AUTO'}</div><div className="ob-success-stat-label">Employee ID</div></div>
                   <div className="ob-success-stat"><div className="ob-success-stat-val" style={{ color: T.amber, fontSize: 15 }}>Assign next</div><div className="ob-success-stat-label">Location</div></div>
                   <div className="ob-success-stat"><div className="ob-success-stat-val">{data.shiftType}</div><div className="ob-success-stat-label">Shift type</div></div>
                 </div>
