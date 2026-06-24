@@ -3,22 +3,21 @@
 // Locations: filterable list + Dubai pin map + detail panel, with add/edit
 // (modal) and geofence adjustment wired to /api/locations.
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import type { LocationRow } from '@/lib/locations-data'
 import LocationsMap from './LocationsMap'
 
 import { T } from '@/lib/theme'
 
-type Client = { id: string; name: string }
 type Filter = 'all' | 'active' | 'late' | 'noshow'
 
 const EMPTY_FORM = {
-  id: '', name: '', client_id: '', chain: '', area: '', address: '',
+  id: '', name: '', chain: '', area: '', address: '',
   lat: '', lng: '', geofence_radius: '150', shift_start: '08:00', shift_end: '19:00', shift_days: 'Mon-Sat',
 }
 
-export default function LocationsClient({ initial, clients }: { initial: LocationRow[]; clients: Client[] }) {
+export default function LocationsClient({ initial }: { initial: LocationRow[] }) {
   const router = useRouter()
   const ALL = initial
   const [search, setSearch] = useState('')
@@ -26,13 +25,32 @@ export default function LocationsClient({ initial, clients }: { initial: Locatio
   const [selected, setSelected] = useState<string | null>(null)
   const [form, setForm] = useState<typeof EMPTY_FORM | null>(null)
   const [busy, setBusy] = useState(false)
+  // Snapshot of the form as opened, to detect unsaved edits (data-loss guard).
+  const initialFormRef = useRef<string>('')
+  // True only while a mouse-press started on the backdrop itself (not a drag
+  // that began inside the modal — e.g. selecting text and releasing outside).
+  const backdropDownRef = useRef(false)
+
+  const formIsDirty = () => !!form && JSON.stringify(form) !== initialFormRef.current
+
+  // Close the modal without ever silently discarding typed input: a backdrop
+  // dismiss confirms first when the form has unsaved edits. Cancel/✕ are
+  // explicit, so they close directly.
+  function closeForm(opts?: { confirmIfDirty?: boolean }) {
+    if (opts?.confirmIfDirty && formIsDirty()) {
+      if (!window.confirm('Discard unsaved changes to this location?')) return
+    }
+    setForm(null)
+  }
 
   const filtered = useMemo(() => {
     let d = ALL
     if (filter !== 'all') d = d.filter((l) => l.status === filter)
     if (search) {
       const q = search.toLowerCase()
-      d = d.filter((l) => l.name.toLowerCase().includes(q) || (l.client ?? '').toLowerCase().includes(q) || (l.supervisor ?? '').toLowerCase().includes(q))
+      // Client is hidden in the UI (demo) — search by name/supervisor only, so
+      // typing a client name (e.g. "Talabat") no longer surfaces locations.
+      d = d.filter((l) => l.name.toLowerCase().includes(q) || (l.supervisor ?? '').toLowerCase().includes(q))
     }
     return d
   }, [ALL, filter, search])
@@ -48,28 +66,32 @@ export default function LocationsClient({ initial, clients }: { initial: Locatio
   function changeFilter(f: Filter) { setFilter(f); setSelected(null) } // bug #5
 
   function openAdd() {
-    setForm({ ...EMPTY_FORM, client_id: clients[0]?.id ?? '' })
+    const f = { ...EMPTY_FORM }
+    initialFormRef.current = JSON.stringify(f)
+    setForm(f)
   }
   function openEdit(loc: LocationRow) {
-    setForm({
-      id: loc.id, name: loc.name, client_id: clients.find((c) => c.name === loc.client)?.id ?? clients[0]?.id ?? '',
+    const f = {
+      id: loc.id, name: loc.name,
       chain: loc.chain ?? '', area: loc.area ?? '', address: loc.address ?? '',
       lat: String(loc.lat), lng: String(loc.lng), geofence_radius: String(loc.geofenceRadius),
       shift_start: loc.shiftHours.split('–')[0] || '08:00', shift_end: loc.shiftHours.split('–')[1] || '19:00',
       shift_days: loc.shiftDays ?? 'Mon-Sat',
-    })
+    }
+    initialFormRef.current = JSON.stringify(f)
+    setForm(f)
   }
 
   async function saveForm() {
     if (!form) return
-    if (!form.name || !form.client_id || !form.lat || !form.lng) {
-      alert('Name, client, latitude and longitude are required.')
+    if (!form.name || !form.lat || !form.lng) {
+      alert('Name, latitude and longitude are required.')
       return
     }
     setBusy(true)
     try {
       const body: Record<string, any> = {
-        name: form.name, client_id: form.client_id, chain: form.chain || null, area: form.area || null,
+        name: form.name, chain: form.chain || null, area: form.area || null,
         address: form.address || null, lat: Number(form.lat), lng: Number(form.lng),
         geofence_radius: Number(form.geofence_radius) || 150,
         shift_start: `${form.shift_start}:00`, shift_end: `${form.shift_end}:00`, shift_days: form.shift_days,
@@ -224,19 +246,26 @@ export default function LocationsClient({ initial, clients }: { initial: Locatio
         </div>
 
         {form && (
-          <div className="lp-overlay" onClick={() => setForm(null)}>
-            <div className="lp-modal" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="lp-overlay"
+            onMouseDown={(e) => { backdropDownRef.current = e.target === e.currentTarget }}
+            onMouseUp={(e) => {
+              // Only a TRUE backdrop click closes: the press and release both
+              // landed on the backdrop itself. A text-selection drag that began
+              // in the modal and ended out here leaves backdropDownRef false, so
+              // it never closes and never loses typed input.
+              const trueBackdropClick = backdropDownRef.current && e.target === e.currentTarget
+              backdropDownRef.current = false
+              if (trueBackdropClick) closeForm({ confirmIfDirty: true })
+            }}
+          >
+            <div className="lp-modal">
               <div className="lp-modal-title">{form.id ? 'Edit location' : 'Add location'}</div>
               <div style={{ fontSize: 12, color: T.dim, marginBottom: 16, lineHeight: 1.5 }}>
-                Store timings are <strong style={{ color: T.whiteMid }}>optional defaults</strong> — used only for pickers who don&apos;t have their own shift set. Name, client, and coordinates are required.
+                Store timings are <strong style={{ color: T.whiteMid }}>optional defaults</strong> — used only for pickers who don&apos;t have their own shift set. Name and coordinates are required.
               </div>
               <div className="lp-modal-grid">
                 <Field label="Name *"><input className="lp-input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
-                <Field label="Client *">
-                  <select className="lp-input" value={form.client_id} onChange={(e) => setForm({ ...form, client_id: e.target.value })}>
-                    {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                </Field>
                 <Field label="Chain"><input className="lp-input" value={form.chain} onChange={(e) => setForm({ ...form, chain: e.target.value })} /></Field>
                 <Field label="Area"><input className="lp-input" value={form.area} onChange={(e) => setForm({ ...form, area: e.target.value })} /></Field>
                 <Field label="Address" full><input className="lp-input" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} /></Field>
@@ -248,7 +277,7 @@ export default function LocationsClient({ initial, clients }: { initial: Locatio
                 <Field label="Default store end"><input className="lp-input" type="time" value={form.shift_end} onChange={(e) => setForm({ ...form, shift_end: e.target.value })} /></Field>
               </div>
               <div className="lp-modal-actions">
-                <button className="lp-btn ghost" onClick={() => setForm(null)}>Cancel</button>
+                <button className="lp-btn ghost" onClick={() => closeForm()}>Cancel</button>
                 <button className="lp-btn primary" onClick={saveForm} disabled={busy}>{busy ? 'Saving…' : form.id ? 'Save changes' : 'Create location'}</button>
               </div>
             </div>

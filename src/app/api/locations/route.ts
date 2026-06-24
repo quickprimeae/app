@@ -23,8 +23,8 @@ export async function POST(req: NextRequest) {
 
   try {
     const b = await req.json()
-    if (!b.name || !b.client_id || b.lat == null || b.lng == null) {
-      return NextResponse.json({ error: 'name, client_id, lat, lng are required' }, { status: 400 })
+    if (!b.name || b.lat == null || b.lng == null) {
+      return NextResponse.json({ error: 'name, lat, lng are required' }, { status: 400 })
     }
     const startTime = b.shift_start || '08:00:00'
     const endTime = b.shift_end || '19:00:00'
@@ -35,7 +35,9 @@ export async function POST(req: NextRequest) {
       .from('locations')
       .insert({
         tenant_id: ctx.opsUser.tenant_id,
-        client_id: b.client_id,
+        // client is optional now (the form no longer collects it); insert NULL
+        // when none is given. Requires migration 0018 (client_id nullable).
+        client_id: b.client_id ?? null,
         name: b.name,
         chain: b.chain ?? null,
         area: b.area ?? null,
