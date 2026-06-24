@@ -3,7 +3,7 @@
 // Picker clock-in / clock-out. Mobile-first, PIN auth, server-side geofence.
 // Flow: identify by phone -> home -> (clock in/out) GPS -> PIN -> [selfie] -> done.
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import LiveCameraCapture from '@/components/LiveCameraCapture'
 import { PICKER } from '@/lib/theme'
 
@@ -29,7 +29,12 @@ type TodayState = {
   clocked_in: boolean
   clocked_out: boolean
   clock_in_time: string | null
+  break_started_at: string | null
+  break_ended_at: string | null
+  break_ended_reason: string | null
 }
+
+const BREAK_MS = 60 * 60 * 1000 // one-hour break (matches src/lib/break.ts)
 
 const STEPS = {
   IDENTIFY: 'identify',
@@ -63,13 +68,20 @@ function formatHm(d: Date | null) {
   if (!d) return '--:--'
   return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
 }
-function elapsed(start: Date | null, now: Date | null) {
-  if (!start || !now) return ''
-  const s = Math.max(0, Math.floor((now.getTime() - start.getTime()) / 1000))
+// h:m:s from a number of seconds (used for the break-excluded work timer).
+function fmtDur(secs: number) {
+  const s = Math.max(0, Math.floor(secs))
   const h = Math.floor(s / 3600).toString().padStart(2, '0')
   const m = Math.floor((s % 3600) / 60).toString().padStart(2, '0')
   const sec = (s % 60).toString().padStart(2, '0')
   return `${h}:${m}:${sec}`
+}
+// mm:ss countdown from a number of milliseconds (break remaining).
+function fmtCountdown(ms: number) {
+  const t = Math.max(0, Math.floor(ms / 1000))
+  const m = Math.floor(t / 60).toString().padStart(2, '0')
+  const s = (t % 60).toString().padStart(2, '0')
+  return `${m}:${s}`
 }
 // "08:00:00" -> "08:00"
 function hm(t: string | null) {
@@ -211,6 +223,14 @@ export default function PickerClockIn() {
   const [clockedOut, setClockedOut] = useState(false)
   const [hoursWorked, setHoursWorked] = useState<number | null>(null)
 
+  // Break state (one per shift). Mirrors the open clock_in row; derived from
+  // timestamps so it survives refresh — no client countdown counters.
+  const [breakStartedAt, setBreakStartedAt] = useState<Date | null>(null)
+  const [breakEndedAt, setBreakEndedAt] = useState<Date | null>(null)
+  const [, setBreakReason] = useState<string | null>(null)
+  const [breakBusy, setBreakBusy] = useState(false)
+  const autoEndPersisted = useRef(false)
+
   // Action transient state
   const [coords, setCoords] = useState<{ lat: number; lng: number; acc: number } | null>(null)
   const [pinError, setPinError] = useState<string | null>(null)
@@ -248,6 +268,97 @@ export default function PickerClockIn() {
     return () => { cancelled = true }
   }, [])
 
+  // ── Break: all state derived from timestamps (survives refresh) ──────────
+  const nowMs = now?.getTime() ?? 0
+  // A break ends explicitly (manual/clockout) OR auto-elapses at start + 1h.
+  const breakAutoElapsed = !!breakStartedAt && !breakEndedAt && nowMs > breakStartedAt.getTime() + BREAK_MS
+  const effBreakEndMs = breakEndedAt
+    ? breakEndedAt.getTime()
+    : breakAutoElapsed
+      ? breakStartedAt!.getTime() + BREAK_MS
+      : null
+  const onBreak = !!breakStartedAt && effBreakEndMs == null
+  const breakUsed = !!breakStartedAt // one break per shift
+  const breakRemainingMs = onBreak ? Math.max(0, breakStartedAt!.getTime() + BREAK_MS - nowMs) : 0
+
+  // Work-timer DISPLAY excludes break time. Does NOT affect payroll hours.
+  function workedSecs(): number {
+    if (!clockedInAt || !now) return 0
+    let ms = nowMs - clockedInAt.getTime()
+    if (breakStartedAt) {
+      const be = effBreakEndMs ?? nowMs // still on break -> exclude up to now
+      ms -= Math.max(0, be - breakStartedAt.getTime())
+    }
+    return Math.max(0, Math.floor(ms / 1000))
+  }
+
+  // When a break auto-elapses locally, persist the 'auto' end once (no cron).
+  useEffect(() => {
+    if (!employee || !breakStartedAt || breakEndedAt || !breakAutoElapsed) return
+    if (autoEndPersisted.current) return
+    autoEndPersisted.current = true
+    fetch(`/api/clock-in/break?employee_id=${employee.id}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.break_ended_at) {
+          setBreakEndedAt(new Date(d.break_ended_at))
+          setBreakReason(d.break_ended_reason ?? 'auto')
+        }
+      })
+      .catch(() => {})
+  }, [employee, breakStartedAt, breakEndedAt, breakAutoElapsed])
+
+  function applyBreakState(d: { break_started_at?: string | null; break_ended_at?: string | null; break_ended_reason?: string | null }) {
+    setBreakStartedAt(d.break_started_at ? new Date(d.break_started_at) : null)
+    setBreakEndedAt(d.break_ended_at ? new Date(d.break_ended_at) : null)
+    setBreakReason(d.break_ended_reason ?? null)
+  }
+
+  async function startBreak() {
+    if (!employee || breakBusy) return
+    setBreakBusy(true)
+    try {
+      const res = await fetch('/api/clock-in/break', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ employee_id: employee.id, action: 'start' }),
+      })
+      const d = await res.json()
+      if (!res.ok) { setOverlayError(d.error || 'Could not start break.'); setStep(STEPS.SUCCESS); return }
+      autoEndPersisted.current = false
+      applyBreakState(d)
+    } catch {
+      setOverlayError('Network error. Please try again.'); setStep(STEPS.SUCCESS)
+    } finally {
+      setBreakBusy(false)
+    }
+  }
+
+  // 'end' = manual (resume work); 'clockout' = closing because clocking out.
+  async function endBreakRemote(action: 'end' | 'clockout') {
+    if (!employee) return
+    try {
+      const res = await fetch('/api/clock-in/break', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ employee_id: employee.id, action }),
+      })
+      const d = await res.json().catch(() => null)
+      if (res.ok && d?.break_ended_at) {
+        setBreakEndedAt(new Date(d.break_ended_at))
+        setBreakReason(d.break_ended_reason ?? (action === 'clockout' ? 'clockout' : 'manual'))
+      }
+    } catch {
+      /* keep UI responsive; the next read reconciles */
+    }
+  }
+
+  async function endBreakManual() {
+    if (breakBusy) return
+    setBreakBusy(true)
+    try { await endBreakRemote('end') } finally { setBreakBusy(false) }
+  }
+
   async function handleIdentify(e: React.FormEvent) {
     e.preventDefault()
     setIdentifyError(null)
@@ -265,6 +376,8 @@ export default function PickerClockIn() {
       setLocation(data.location)
       if (data.today.clock_in_time) setClockedInAt(new Date(data.today.clock_in_time))
       setClockedOut(!!data.today.clocked_out)
+      autoEndPersisted.current = false
+      applyBreakState(data.today) // restore exact break state from the row
       setStep(STEPS.HOME)
     } catch {
       setIdentifyError('Network error. Please try again.')
@@ -418,9 +531,18 @@ export default function PickerClockIn() {
       if (action === 'in') {
         setClockedInAt(new Date(data.timestamp ?? Date.now()))
         setClockedOut(false)
+        // Fresh shift — no break yet.
+        setBreakStartedAt(null)
+        setBreakEndedAt(null)
+        setBreakReason(null)
+        autoEndPersisted.current = false
       } else {
         setHoursWorked(typeof data.hours_worked === 'number' ? data.hours_worked : null)
         setClockedOut(true)
+        // Clock-out actually completed — NOW consume an open break as 'clockout'.
+        // (A cancelled/failed clock-out never reaches here, so the break stays
+        // intact and its countdown resumes.)
+        if (breakStartedAt && !breakEndedAt) void endBreakRemote('clockout')
       }
       setMatchResult({ verdict: data.verdict, distance: data.distance })
       setSelfieBusy(false)
@@ -570,14 +692,25 @@ export default function PickerClockIn() {
             <div className="qp-date">{formatDate(now)}</div>
 
             {isClockedIn && (
-              <div className="qp-clocked-status">
-                <div className="qp-status-dot" />
-                <div className="qp-status-text">
-                  <div className="qp-status-label">Clocked in at</div>
-                  <div className="qp-status-time">{formatHm(clockedInAt)}</div>
+              <>
+                <div className="qp-clocked-status">
+                  <div className="qp-status-dot" style={onBreak ? { background: '#C98A1E', animation: 'none' } : undefined} />
+                  <div className="qp-status-text">
+                    <div className="qp-status-label">{onBreak ? 'On break — work paused' : 'Clocked in at'}</div>
+                    <div className="qp-status-time">{onBreak ? 'Paused' : formatHm(clockedInAt)}</div>
+                  </div>
+                  <div className="qp-elapsed">{fmtDur(workedSecs())}</div>
                 </div>
-                <div className="qp-elapsed">{elapsed(clockedInAt, now)}</div>
-              </div>
+                {onBreak && (
+                  <div className="qp-break-card">
+                    <div className="qp-break-text">
+                      <div className="qp-break-label">Break ends in</div>
+                      <div className="qp-break-sub">Work timer is paused</div>
+                    </div>
+                    <div className="qp-break-count">{fmtCountdown(breakRemainingMs)}</div>
+                  </div>
+                )}
+              </>
             )}
 
             <div className="qp-cta-wrap">
@@ -600,10 +733,23 @@ export default function PickerClockIn() {
                   Clock in
                 </button>
               ) : (
-                <button className="qp-cta-btn clock-out" onClick={() => beginAction('out')}>
-                  <span className="qp-cta-icon">⏹</span>
-                  Clock out
-                </button>
+                <>
+                  {onBreak ? (
+                    <button className="qp-cta-btn break-end" onClick={endBreakManual} disabled={breakBusy}>
+                      <span className="qp-cta-icon">▶</span>
+                      End break
+                    </button>
+                  ) : !breakUsed ? (
+                    <button className="qp-cta-btn break" onClick={startBreak} disabled={breakBusy}>
+                      <span className="qp-cta-icon">☕</span>
+                      Break
+                    </button>
+                  ) : null}
+                  <button className="qp-cta-btn clock-out" onClick={() => beginAction('out')}>
+                    <span className="qp-cta-icon">⏹</span>
+                    Clock out
+                  </button>
+                </>
               )}
             </div>
           </div>
@@ -809,7 +955,7 @@ const css = `
   }
   .qp-text-input:focus { border-color: ${TEAL_MID}; }
 
-  .qp-cta-wrap { width: 100%; margin-bottom: 16px; }
+  .qp-cta-wrap { width: 100%; margin-bottom: 16px; display: flex; flex-direction: column; gap: 12px; }
   .qp-cta-btn {
     width: 100%; padding: 22px 24px; border-radius: 18px; border: none;
     font-family: var(--font-jakarta), sans-serif; font-size: 18px; font-weight: 600; cursor: pointer;
@@ -819,8 +965,20 @@ const css = `
   .qp-cta-btn:active { transform: scale(0.97); }
   .qp-cta-btn.clock-in { background: ${TEAL_MID}; color: #1B2B2B; }
   .qp-cta-btn.clock-out { background: #fff; color: ${TEAL_DARK}; border: 2px solid ${TEAL_MID}; }
+  .qp-cta-btn.break { background: #FFF7EA; color: #8A5A12; border: 2px solid #E6C170; }
+  .qp-cta-btn.break-end { background: ${TEAL_MID}; color: #1B2B2B; }
   .qp-cta-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
   .qp-cta-icon { font-size: 22px; line-height: 1; }
+
+  .qp-break-card {
+    width: 100%; background: #FFF7EA; border: 1px solid #F0D89A; border-radius: 14px;
+    padding: 14px 20px; display: flex; align-items: center; justify-content: space-between;
+    gap: 14px; margin-bottom: 14px;
+  }
+  .qp-break-text { display: flex; flex-direction: column; gap: 2px; }
+  .qp-break-label { font-size: 12px; font-weight: 600; color: #8A5A12; }
+  .qp-break-sub { font-size: 11px; color: #B08433; }
+  .qp-break-count { font-family: 'DM Mono', monospace; font-size: 26px; font-weight: 600; color: #8A5A12; letter-spacing: -0.01em; }
 
   .qp-clocked-status {
     width: 100%; background: ${TEAL_LIGHT}; border-radius: 14px; padding: 16px 20px;

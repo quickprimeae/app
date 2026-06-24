@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase'
 import { PILOT_TENANT_ID } from '@/lib/config'
 import { normalizePhone } from '@/lib/phone'
+import { resolveBreakState, type BreakRow } from '@/lib/break'
 
 export async function GET(req: NextRequest) {
   const supabase = createServerSupabaseClient()
@@ -62,7 +63,7 @@ export async function GET(req: NextRequest) {
   const today = new Date().toISOString().split('T')[0]
   const { data: events } = await supabase
     .from('clock_events')
-    .select('event_type, timestamp')
+    .select('id, event_type, timestamp, break_started_at, break_ended_at, break_ended_reason')
     .eq('employee_id', employee.id)
     .eq('voided', false)
     .gte('timestamp', `${today}T00:00:00Z`)
@@ -71,6 +72,13 @@ export async function GET(req: NextRequest) {
 
   const clockIn = events?.find((e) => e.event_type === 'clock_in')
   const clockOut = events?.find((e) => e.event_type === 'clock_out')
+
+  // Break state lives on the open clock_in row. Resolve it (auto-ends on read)
+  // only while still clocked in, so the picker screen restores exact state.
+  let breakState = null
+  if (clockIn && !clockOut) {
+    breakState = await resolveBreakState(supabase, clockIn as BreakRow)
+  }
 
   return NextResponse.json({
     employee: {
@@ -85,6 +93,9 @@ export async function GET(req: NextRequest) {
       clocked_in: !!clockIn,
       clocked_out: !!clockOut,
       clock_in_time: clockIn?.timestamp ?? null,
+      break_started_at: breakState?.break_started_at ?? null,
+      break_ended_at: breakState?.break_ended_at ?? null,
+      break_ended_reason: breakState?.break_ended_reason ?? null,
     },
   })
 }
