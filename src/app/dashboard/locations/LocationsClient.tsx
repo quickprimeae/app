@@ -5,16 +5,25 @@
 
 import { useState, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import type { LocationRow } from '@/lib/locations-data'
+import { LOCATION_DEFAULTS } from '@/lib/locations-defaults'
 import LocationsMap from './LocationsMap'
 
 import { T } from '@/lib/theme'
 
 type Filter = 'all' | 'active' | 'late' | 'noshow'
 
+// Defaults come from the shared LOCATION_DEFAULTS so the Add form and the bulk
+// importer start every new location from identical values (150 / Mon-Sun /
+// 08:00 / 23:59). These are editable starting values, not locked.
 const EMPTY_FORM = {
   id: '', name: '', chain: '', area: '', address: '',
-  lat: '', lng: '', geofence_radius: '150', shift_start: '08:00', shift_end: '19:00', shift_days: 'Mon-Sat',
+  lat: '', lng: '',
+  geofence_radius: String(LOCATION_DEFAULTS.geofence_m),
+  shift_start: LOCATION_DEFAULTS.store_start as string,
+  shift_end: LOCATION_DEFAULTS.store_end as string,
+  shift_days: LOCATION_DEFAULTS.store_days as string,
 }
 
 export default function LocationsClient({ initial }: { initial: LocationRow[] }) {
@@ -139,6 +148,7 @@ export default function LocationsClient({ initial }: { initial: LocationRow[] })
               <span style={{ fontSize: 13, color: T.dim }}>🔍</span>
               <input placeholder="Search locations…" value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
+            <Link href="/dashboard/locations/bulk" className="lp-btn ghost">⬆ Bulk upload</Link>
             <button className="lp-btn primary" onClick={openAdd}>+ Add location</button>
           </div>
         </header>
