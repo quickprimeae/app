@@ -5,6 +5,7 @@
 
 import { createServerSupabaseClient } from './supabase'
 import { deriveStatus, type DerivedStatus } from './status'
+import { gstDay, gstMinutesOf, buildRosterMap } from './roster'
 
 export type PickerStatus = DerivedStatus
 export type LocationStatus = 'active' | 'late' | 'noshow' | 'noshift'
@@ -80,7 +81,8 @@ function shortName(first: string, last: string | null): string {
 
 export async function getDashboardData(tenantId: string): Promise<DashboardData> {
   const supabase = createServerSupabaseClient()
-  const today = new Date().toISOString().split('T')[0]
+  // Operational day + clock-in window in GST (the roster's calendar day).
+  const gst = gstDay()
 
   const [locRes, empRes, evtRes, alertRes, schedRes] = await Promise.all([
     supabase
@@ -101,8 +103,8 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
       .eq('tenant_id', tenantId)
       .eq('event_type', 'clock_in')
       .eq('voided', false)
-      .gte('timestamp', `${today}T00:00:00Z`)
-      .lte('timestamp', `${today}T23:59:59Z`),
+      .gte('timestamp', gst.startUTC)
+      .lt('timestamp', gst.endUTC),
     supabase
       .from('alerts')
       .select('id, type, severity, title, body, created_at, employee_id, review_result')
@@ -111,11 +113,12 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
       .order('created_at', { ascending: false })
       .limit(100),
     // Today's rostered shift per picker (concrete schedule, not store timings).
+    // This is the SINGLE source for late / no-show — see src/lib/roster.ts.
     supabase
       .from('scheduled_shifts')
       .select('employee_id, start_time, end_time')
       .eq('tenant_id', tenantId)
-      .eq('date', today)
+      .eq('date', gst.date)
       .eq('status', 'scheduled'),
   ])
 
@@ -127,12 +130,10 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
   const alertRows = (alertRes.data ?? []) as any[]
   const scheduled = (schedRes.data ?? []) as { employee_id: string; start_time: string; end_time: string }[]
 
-  // employee_id -> today's rostered "HH:MM-HH:MM" (unique per employee+date).
-  const hm = (t: string | null) => (t ? t.slice(0, 5) : null)
-  const rosterByEmployee = new Map<string, string>()
-  for (const s of scheduled) {
-    rosterByEmployee.set(s.employee_id, `${hm(s.start_time)}–${hm(s.end_time)}`)
-  }
+  // employee_id -> today's scheduled shift (start/end minutes + raw times). ONE
+  // map drives BOTH the display string and the late/no-show computation, so they
+  // always agree. Schema enforces one scheduled row per picker per day.
+  const rosterByEmployee = buildRosterMap(scheduled)
 
   // Face-flag is sourced from the alerts table (single source). "Flagged" =
   // a PENDING face flag (open + un-reviewed); a rejected/escalated flag does
@@ -152,44 +153,33 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
     }
   }
 
-  // Current time-of-day in Gulf Standard Time (UTC+4) to decide whether a
-  // shift has started. Shift `time` columns are GST. No overnight shifts, so a
-  // same-day minutes-since-midnight comparison is sufficient.
-  const nowD = new Date()
-  const nowMin = (nowD.getUTCHours() * 60 + nowD.getUTCMinutes() + 240) % 1440
-  const toMin = (t: string | null): number | null => {
-    if (!t) return null
-    const [h, m] = t.split(':').map(Number)
-    return h * 60 + m
-  }
+  // Current time-of-day in GST (minutes since midnight) — same convention as the
+  // roster start/end minutes, so they compare directly.
+  const nowMin = gstMinutesOf(new Date())
 
   const dashLocations: DashLocation[] = locations.map((loc: any) => {
     const locEmps = employees.filter((e: any) => e.location_id === loc.id)
     const total = locEmps.length
     let clockedIn = 0
-    let missing = 0 // shift has started but no clock-in
+    let missing = 0   // rostered, due past the no-show cutoff, still no clock-in
+    let scheduled = 0 // pickers with a roster row today
 
     const pickers: DashPicker[] = locEmps.map((e: any) => {
       const ev = byEmployee.get(e.id)
-      // Effective shift = the employee's own time if set, else the location's.
-      const startMin = toMin(e.shift_start ?? loc.shift_start ?? null)
-      const shiftStarted = startMin == null ? true : nowMin >= startMin
-      let late = false
-      if (ev) {
-        clockedIn++
-        const d = new Date(ev.timestamp)
-        const clockMin = (d.getUTCHours() * 60 + d.getUTCMinutes() + 240) % 1440
-        late = startMin != null && clockMin > startMin + 5
-      }
+      // Roster is the SINGLE source of expected times — no employee/location
+      // store-hours fallback. null roster start => no shift today.
+      const roster = rosterByEmployee.get(e.id)
+      if (roster) scheduled++
+      if (ev) clockedIn++
       const pstatus = deriveStatus({
         active: true, // query already filters active = true
         pinSet: !!e.pin_set,
-        clockedIn: !!ev,
-        late,
-        shiftStarted,
+        clockInMin: ev ? gstMinutesOf(new Date(ev.timestamp)) : null,
+        rosterStartMin: roster?.startMin ?? null,
+        nowMin,
       })
-      // Only a genuinely-due, PIN-ready picker who hasn't clocked in is a no-show.
-      // awaiting_setup can't clock in, so it is never counted as missing.
+      // Only a rostered, PIN-ready picker past the no-show cutoff is "missing".
+      // awaiting_setup and no_schedule pickers can't be no-shows, so never count.
       if (pstatus === 'absent') missing++
       return {
         id: e.employee_number || e.id.slice(0, 8),
@@ -198,15 +188,18 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
         clockedInAt: ev?.timestamp ?? null,
         flagged: flaggedEmpIds.has(e.id),
         shiftType: e.shift_type ?? null,
-        rosterShift: rosterByEmployee.get(e.id) ?? null,
+        rosterShift: roster ? `${roster.start.slice(0, 5)}–${roster.end.slice(0, 5)}` : null,
         supervisor: e.vendor?.supervisor_name ?? null,
       }
     })
 
-    // Location status from shift-aware counts: pickers not yet due don't count
-    // as no-shows.
+    // Location status from roster-aware counts. A site with pickers assigned but
+    // NONE rostered today is 'noshift' (nobody is scheduled) — not 'active' — so
+    // the new no_schedule state can't masquerade as live coverage. Pickers not
+    // yet past the no-show cutoff don't count as no-shows.
     const status: LocationStatus =
       total === 0 ? 'noshift'
+      : scheduled === 0 ? 'noshift'     // assigned here, but nobody scheduled today
       : clockedIn === total ? 'active'
       : missing === 0 ? 'active'        // everyone due is in; rest not due yet
       : clockedIn === 0 ? 'noshow'      // nobody who's due has shown up

@@ -19,6 +19,7 @@ const CHIP_CLASS: Record<DerivedStatus, string> = {
   late: 'late',
   absent: 'absent',
   ready: 'expected',
+  no_schedule: 'awaiting',
   awaiting_setup: 'awaiting',
   deactivated: 'expected',
 }

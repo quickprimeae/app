@@ -4,6 +4,7 @@
 
 import { createServerSupabaseClient } from './supabase'
 import { deriveStatus, type DerivedStatus } from './status'
+import { gstDay, gstMinutesOf, buildRosterMap } from './roster'
 
 export type EmployeeStatus = DerivedStatus
 export type EmployeeRow = {
@@ -38,19 +39,14 @@ export type EmployeeRow = {
   pinSet: boolean
 }
 
-function timeToMinutes(t: string | null): number | null {
-  if (!t) return null
-  const [h, m] = t.split(':').map(Number)
-  return h * 60 + m
-}
-
 export async function getEmployeesList(tenantId: string): Promise<EmployeeRow[]> {
   const supabase = createServerSupabaseClient()
-  const today = new Date().toISOString().split('T')[0]
+  // Operational day + clock-in window in GST (the roster's calendar day).
+  const gst = gstDay()
   const month = new Date().getMonth() + 1
   const year = new Date().getFullYear()
 
-  const [empRes, locRes, evtRes, hoursRes, flagRes] = await Promise.all([
+  const [empRes, locRes, evtRes, hoursRes, flagRes, schedRes] = await Promise.all([
     supabase
       .from('employees')
       .select('id, employee_number, first_name, last_name, phone, nationality, location_id, branch, hourly_rate, shift_days, shift_start, shift_end, has_photo, reference_photo_url, face_descriptor, active, pin_set, start_date, supervisor:ops_users(name)')
@@ -66,8 +62,8 @@ export async function getEmployeesList(tenantId: string): Promise<EmployeeRow[]>
       .eq('tenant_id', tenantId)
       .eq('event_type', 'clock_in')
       .eq('voided', false)
-      .gte('timestamp', `${today}T00:00:00Z`)
-      .lte('timestamp', `${today}T23:59:59Z`),
+      .gte('timestamp', gst.startUTC)
+      .lt('timestamp', gst.endUTC),
     supabase
       .from('monthly_hours')
       .select('employee_id, total_hours, gross_pay')
@@ -82,6 +78,13 @@ export async function getEmployeesList(tenantId: string): Promise<EmployeeRow[]>
       .eq('resolved', false)
       .is('review_result', null)
       .order('created_at', { ascending: false }),
+    // Today's roster — the SINGLE source for late / no-show (see src/lib/roster.ts).
+    supabase
+      .from('scheduled_shifts')
+      .select('employee_id, start_time, end_time')
+      .eq('tenant_id', tenantId)
+      .eq('date', gst.date)
+      .eq('status', 'scheduled'),
   ])
 
   const employees = (empRes.data ?? []) as any[]
@@ -111,12 +114,12 @@ export async function getEmployeesList(tenantId: string): Promise<EmployeeRow[]>
   const locById = new Map(((locRes.data ?? []) as any[]).map((l) => [l.id, l]))
   const events = (evtRes.data ?? []) as any[]
   const hoursByEmp = new Map(((hoursRes.data ?? []) as any[]).map((h) => [h.employee_id, h]))
+  // employee_id -> today's scheduled shift. SINGLE source for late / no-show.
+  const rosterByEmp = buildRosterMap((schedRes.data ?? []) as any[])
 
-  // Current time-of-day in Gulf Standard Time (UTC+4) to decide whether a
-  // shift has started — same convention as the live dashboard. No overnight
-  // shifts, so a same-day minutes-since-midnight comparison is sufficient.
-  const nowD = new Date()
-  const nowMin = (nowD.getUTCHours() * 60 + nowD.getUTCMinutes() + 240) % 1440
+  // Current time-of-day in GST (minutes since midnight) — same convention as the
+  // roster start/end minutes, so they compare directly.
+  const nowMin = gstMinutesOf(new Date())
 
   const clockByEmp = new Map<string, { timestamp: string; flagged: boolean }>()
   for (const e of events) {
@@ -131,27 +134,21 @@ export async function getEmployeesList(tenantId: string): Promise<EmployeeRow[]>
     const ev = clockByEmp.get(e.id)
     const hours = hoursByEmp.get(e.id)
 
-    // Effective shift = employee's own times if set, else the location default.
+    // Contracted shift (employee's own times, else the location default). This is
+    // a DISPLAY-ONLY field ("Shift" line in the drawer) — it is NOT used for
+    // late / no-show anymore. Those read today's roster below.
     const effStart: string | null = e.shift_start ?? loc?.shift_start ?? null
     const effEnd: string | null = e.shift_end ?? loc?.shift_end ?? null
 
-    // Derived status: deactivated > awaiting_setup > clocked_in/late > ready/absent.
-    // A shift with no start time is treated as already due (shiftStarted = true).
-    const shiftStartMin = timeToMinutes(effStart)
-    let late = false
-    if (ev) {
-      // Compare clock-in against the shift start in GST (UTC+4); shifts never
-      // cross midnight.
-      const d = new Date(ev.timestamp)
-      const clockMin = (d.getUTCHours() * 60 + d.getUTCMinutes() + 240) % 1440
-      late = shiftStartMin != null && clockMin > shiftStartMin + 5
-    }
+    // Late / no-show from TODAY'S ROSTER only — no store-hours fallback. No roster
+    // row => 'no_schedule' (off today; never late, never a no-show).
+    const roster = rosterByEmp.get(e.id)
     const status = deriveStatus({
       active: !!e.active,
       pinSet: !!e.pin_set,
-      clockedIn: !!ev,
-      late,
-      shiftStarted: shiftStartMin == null ? true : nowMin >= shiftStartMin,
+      clockInMin: ev ? gstMinutesOf(new Date(ev.timestamp)) : null,
+      rosterStartMin: roster?.startMin ?? null,
+      nowMin,
     })
 
     const rate = Number(e.hourly_rate) || 0

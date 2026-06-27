@@ -17,6 +17,7 @@ const BADGE_CLASS: Record<DerivedStatus, string> = {
   late: 'late',
   absent: 'absent',
   ready: 'ready',
+  no_schedule: 'awaiting',
   awaiting_setup: 'awaiting',
   deactivated: 'deactivated',
 }
@@ -40,6 +41,7 @@ type StatusFilter =
   | 'late'
   | 'absent'
   | 'ready'
+  | 'no_schedule'
   | 'awaiting_setup'
   | 'deactivated'
   | 'flagged'
@@ -112,6 +114,7 @@ export default function EmployeesClient({ initial, locations }: { initial: Emplo
     late: ALL.filter((e) => e.status === 'late').length,
     absent: ALL.filter((e) => e.status === 'absent').length,
     ready: ALL.filter((e) => e.status === 'ready').length,
+    no_schedule: ALL.filter((e) => e.status === 'no_schedule').length,
     awaiting_setup: ALL.filter((e) => e.status === 'awaiting_setup').length,
     deactivated: ALL.filter((e) => e.status === 'deactivated').length,
     flagged: ALL.filter((e) => e.flagged).length,
@@ -296,6 +299,7 @@ export default function EmployeesClient({ initial, locations }: { initial: Emplo
                 { id: 'late', label: 'Late', dot: T.amber },
                 { id: 'absent', label: 'No-Show', dot: T.red },
                 { id: 'ready', label: 'Ready', dot: T.dimMid },
+                { id: 'no_schedule', label: 'No schedule', dot: T.amber },
                 { id: 'awaiting_setup', label: 'Awaiting setup', dot: T.dimMid },
                 { id: 'deactivated', label: 'Terminated', dot: T.dimMid },
                 { id: 'flagged', label: 'Face flagged', dot: T.amber },
