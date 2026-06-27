@@ -304,6 +304,7 @@ export default function DashboardClient({
                     {loc.status === 'active' && <><span style={{ width: 5, height: 5, borderRadius: '50%', background: T.green, display: 'inline-block' }} /> Active</>}
                     {loc.status === 'noshow' && '🚨 No-show'}
                     {loc.status === 'late' && '⚠ Late'}
+                    {loc.status === 'inactive' && 'Inactive'}
                     {loc.status === 'noshift' && 'No shift'}
                   </div>
                 </div>
@@ -363,8 +364,8 @@ export default function DashboardClient({
                   </div>
                   <div className="db-detail-stat">
                     <div className="db-detail-stat-label">Status</div>
-                    <div className="db-detail-stat-val" style={{ fontSize: 13, color: selectedLoc.status === 'noshow' ? T.red : selectedLoc.status === 'late' ? T.amber : T.tealBright }}>
-                      {selectedLoc.status === 'active' ? 'Active' : selectedLoc.status === 'noshow' ? 'No-show' : selectedLoc.status === 'late' ? 'Late' : 'No shift'}
+                    <div className="db-detail-stat-val" style={{ fontSize: 13, color: selectedLoc.status === 'noshow' ? T.red : selectedLoc.status === 'late' ? T.amber : selectedLoc.status === 'active' ? T.tealBright : T.dimMid }}>
+                      {selectedLoc.status === 'active' ? 'Active' : selectedLoc.status === 'noshow' ? 'No-show' : selectedLoc.status === 'late' ? 'Late' : selectedLoc.status === 'inactive' ? 'Inactive' : 'No shift'}
                     </div>
                   </div>
                 </div>
@@ -473,6 +474,7 @@ const css = `
 .db-loc-status.active { background: ${T.greenBg}; color: ${T.green}; border: 1px solid #9DEEE6; }
 .db-loc-status.noshow { background: ${T.redBg}; color: ${T.red}; border: 1px solid #FCA5A5; }
 .db-loc-status.late { background: ${T.amberBg}; color: ${T.amber}; border: 1px solid #FCD34D; }
+.db-loc-status.inactive { background: ${T.bgSubtle}; color: ${T.dimMid}; border: 1px solid ${T.border}; }
 .db-loc-status.noshift { background: ${T.bgSubtle}; color: ${T.dimMid}; border: 1px solid ${T.border}; }
 .db-loc-pickers { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
 .db-picker-chip { display: flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 500; border: 1px solid transparent; }

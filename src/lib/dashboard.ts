@@ -4,11 +4,11 @@
 // Used by the /dashboard server component and the /api/attendance refresh route.
 
 import { createServerSupabaseClient } from './supabase'
-import { deriveStatus, type DerivedStatus } from './status'
+import { deriveStatus, type DerivedStatus, LATE_GRACE_MIN, NOSHOW_AFTER_MIN } from './status'
 import { gstDay, gstMinutesOf, buildRosterMap } from './roster'
 
 export type PickerStatus = DerivedStatus
-export type LocationStatus = 'active' | 'late' | 'noshow' | 'noshift'
+export type LocationStatus = 'active' | 'late' | 'noshow' | 'inactive' | 'noshift'
 
 export type DashPicker = {
   id: string
@@ -160,17 +160,39 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
   const dashLocations: DashLocation[] = locations.map((loc: any) => {
     const locEmps = employees.filter((e: any) => e.location_id === loc.id)
     const total = locEmps.length
-    let clockedIn = 0
-    let missing = 0   // rostered, due past the no-show cutoff, still no clock-in
-    let scheduled = 0 // pickers with a roster row today
+    let clockedIn = 0       // any clocked-in picker (for the "X/Y" display)
+    let scheduled = 0       // pickers with a roster row today
+    // Location-status tallies over ROSTERED pickers only, off the same roster
+    // times + thresholds as the per-picker status (single source). No-show / late
+    // mean a GENUINE miss, so they are driven ONLY by fully-set-up pickers (PIN
+    // set) who could have clocked in. A rostered awaiting_setup picker (no PIN)
+    // physically can't clock in, so it never makes the location late/no-show —
+    // it contributes to 'inactive' only.
+    let clockedInRostered = 0 // rostered AND clocked in -> the only path to "active"
+    let startedNoShow = 0     // rostered, PIN-set, started, >= no-show cutoff, not in
+    let startedLate = 0       // rostered, PIN-set, started, in the 10–60 min band, not in
 
     const pickers: DashPicker[] = locEmps.map((e: any) => {
       const ev = byEmployee.get(e.id)
       // Roster is the SINGLE source of expected times — no employee/location
       // store-hours fallback. null roster start => no shift today.
       const roster = rosterByEmployee.get(e.id)
-      if (roster) scheduled++
       if (ev) clockedIn++
+      if (roster) {
+        scheduled++
+        if (ev) {
+          clockedInRostered++
+        } else if (e.pin_set) {
+          // Only a SET-UP picker (could have clocked in) whose STARTED shift
+          // (roster start has passed, GST) is past a threshold is a genuine
+          // miss. Not-yet-started, or no-PIN, pickers never count here.
+          const minsSinceStart = nowMin - roster.startMin
+          if (minsSinceStart >= NOSHOW_AFTER_MIN) startedNoShow++
+          else if (minsSinceStart > LATE_GRACE_MIN) startedLate++
+          // 0–10 min (grace) or not started yet => neither; reads as 'inactive'.
+        }
+        // else: awaiting_setup (no PIN) -> can't have missed anything -> inactive.
+      }
       const pstatus = deriveStatus({
         active: true, // query already filters active = true
         pinSet: !!e.pin_set,
@@ -178,9 +200,6 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
         rosterStartMin: roster?.startMin ?? null,
         nowMin,
       })
-      // Only a rostered, PIN-ready picker past the no-show cutoff is "missing".
-      // awaiting_setup and no_schedule pickers can't be no-shows, so never count.
-      if (pstatus === 'absent') missing++
       return {
         id: e.employee_number || e.id.slice(0, 8),
         name: shortName(e.first_name, e.last_name),
@@ -193,17 +212,20 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
       }
     })
 
-    // Location status from roster-aware counts. A site with pickers assigned but
-    // NONE rostered today is 'noshift' (nobody is scheduled) — not 'active' — so
-    // the new no_schedule state can't masquerade as live coverage. Pickers not
-    // yet past the no-show cutoff don't count as no-shows.
+    // Location status (Option B — "active" REQUIRES real attendance). Evaluated
+    // over rostered pickers only:
+    //   noshift  — nobody has a roster shift today (no coverage expected)
+    //   active   — at least one rostered picker is clocked in  (NEVER with 0 in)
+    //   noshow   — nobody in, and a started, SET-UP picker is past the no-show cutoff
+    //   late     — nobody in, and a started, SET-UP picker is in the 10–60 min band
+    //   inactive — rostered, but no genuine miss: shift not started yet, still in
+    //              the 0–10 grace, or the rostered pickers are awaiting_setup
     const status: LocationStatus =
-      total === 0 ? 'noshift'
-      : scheduled === 0 ? 'noshift'     // assigned here, but nobody scheduled today
-      : clockedIn === total ? 'active'
-      : missing === 0 ? 'active'        // everyone due is in; rest not due yet
-      : clockedIn === 0 ? 'noshow'      // nobody who's due has shown up
-      : 'late'                          // some due pickers still missing
+      scheduled === 0 ? 'noshift'
+      : clockedInRostered > 0 ? 'active'
+      : startedNoShow > 0 ? 'noshow'
+      : startedLate > 0 ? 'late'
+      : 'inactive'
 
     const supervisor =
       (locEmps.find((e: any) => e.supervisor?.name)?.supervisor?.name as string) ?? null
