@@ -50,8 +50,8 @@ export const STATUS_META: Record<
 > = {
   clocked_in: { label: 'Clocked in', short: '✓ in', tone: 'green' },
   late: { label: 'Late', short: '⏱ late', tone: 'amber' },
-  absent: { label: 'Absent', short: '✗ absent', tone: 'red' },
+  absent: { label: 'No-Show', short: '✗ absent', tone: 'red' },
   ready: { label: 'Ready', short: 'ready', tone: 'grey' },
   awaiting_setup: { label: 'Awaiting setup', short: 'awaiting setup', tone: 'grey' },
-  deactivated: { label: 'Deactivated', short: 'deactivated', tone: 'grey' },
+  deactivated: { label: 'Terminated', short: 'deactivated', tone: 'grey' },
 }

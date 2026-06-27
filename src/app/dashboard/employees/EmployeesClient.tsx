@@ -294,10 +294,10 @@ export default function EmployeesClient({ initial, locations }: { initial: Emplo
                 { id: 'all', label: 'All employees', dot: T.dim },
                 { id: 'clocked_in', label: 'Clocked in', dot: T.tealBright },
                 { id: 'late', label: 'Late', dot: T.amber },
-                { id: 'absent', label: 'Absent today', dot: T.red },
+                { id: 'absent', label: 'No-Show', dot: T.red },
                 { id: 'ready', label: 'Ready', dot: T.dimMid },
                 { id: 'awaiting_setup', label: 'Awaiting setup', dot: T.dimMid },
-                { id: 'deactivated', label: 'Deactivated', dot: T.dimMid },
+                { id: 'deactivated', label: 'Terminated', dot: T.dimMid },
                 { id: 'flagged', label: 'Face flagged', dot: T.amber },
                 { id: 'nophoto', label: 'No photo', dot: T.dimMid },
               ] as const).map((f) => (
@@ -314,7 +314,7 @@ export default function EmployeesClient({ initial, locations }: { initial: Emplo
             <div className="ep-stats">
               <div className="ep-stat"><div className="ep-stat-val" style={{ color: T.white }}>{counts.all}</div><div className="ep-stat-label">Total employees</div></div>
               <div className="ep-stat"><div className="ep-stat-val" style={{ color: T.tealBright }}>{counts.clocked_in}</div><div className="ep-stat-label">Clocked in today</div></div>
-              <div className="ep-stat"><div className="ep-stat-val" style={{ color: T.red }}>{counts.absent}</div><div className="ep-stat-label">Absent today</div></div>
+              <div className="ep-stat"><div className="ep-stat-val" style={{ color: T.red }}>{counts.absent}</div><div className="ep-stat-label">No-Show</div></div>
               <div className="ep-stat"><div className="ep-stat-val" style={{ color: T.amber }}>{counts.flagged}</div><div className="ep-stat-label">Face flags pending</div></div>
             </div>
 

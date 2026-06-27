@@ -153,9 +153,9 @@ export default function AlertsClient({ initial, focusFlag, startFaceflag }: { in
             <div className="al-s-group">
               <div className="al-s-title">Filter by type</div>
               {([
-                { id: 'all', label: 'All active', icon: '🔔' },
+                { id: 'all', label: 'All Inactive', icon: '🔔' },
                 { id: 'noshow', label: 'No-shows', icon: '🚨' },
-                { id: 'late', label: 'Late / partial', icon: '⏱' },
+                { id: 'late', label: 'Late', icon: '⏱' },
                 { id: 'faceflag', label: 'Face flagged', icon: '🔍' },
                 { id: 'clockout', label: 'Missed clock-out', icon: '⏹' },
               ] as const).map((f) => {

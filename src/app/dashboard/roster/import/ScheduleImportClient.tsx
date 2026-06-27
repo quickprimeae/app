@@ -161,11 +161,12 @@ export default function ScheduleImportClient() {
               <div className="si-intro">
                 <div className="si-intro-title">Upload a weekly schedule grid</div>
                 <div className="si-intro-sub">
-                  One CSV row per picker. First column is the employee (phone like <code>+9715XXXXXXXX</code> or their
-                  employee&nbsp;number), then 7 columns headed <code>Mon</code>, <code>Tue</code> … <code>Sun</code>. Pick the
-                  target week above — each weekday maps to that week&apos;s date. Each cell is a time range like{' '}
-                  <code>08:00-19:00</code>, or blank / <code>OFF</code> for a day off. Re-importing a corrected week updates
-                  existing shifts instead of duplicating; shifts you cancelled in the roster are left untouched.
+                  Add one CSV row per picker. The first column identifies the employee (a phone number like{' '}
+                  <code>+9715XXXXXXXX</code> or their employee&nbsp;number), followed by 7 columns headed <code>Mon</code>,{' '}
+                  <code>Tue</code> … <code>Sun</code>. Choose the target week above — each weekday maps to that week&apos;s date.
+                  Each cell holds a time range like <code>08:00-19:00</code>, or leave it blank / <code>OFF</code> for a day off.
+                  Re-importing a corrected week updates the existing shifts instead of duplicating them, and any shifts you
+                  cancelled in the roster are left untouched.
                 </div>
               </div>
               <div
