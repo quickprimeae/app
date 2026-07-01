@@ -7,6 +7,7 @@ import { createServerSupabaseClient } from './supabase'
 import { deriveStatus, deriveLocationStatus, isRunningLate, type DerivedStatus, type LocationStatus } from './status'
 import { gstDay, gstMinutesOf, buildRosterMap } from './roster'
 import { sessionsByEmployee, type SessionEvent } from './sessions'
+import { vendorCode } from './vendor'
 
 export type PickerStatus = DerivedStatus
 // Canonical location status now lives in ./status (shared with the Locations
@@ -21,10 +22,11 @@ export type DashPicker = {
   flagged: boolean
   // Vendor model: shift_type is read DIRECTLY from employees (never derived from
   // roster duration); rosterShift is today's scheduled time (null = none yet);
-  // supervisor is the picker's VENDOR supervisor (null when vendor_id is null).
+  // vendor is the picker's VENDOR short code (AJ/SS), derived from the vendor at
+  // the display layer (null when vendor_id is null). See src/lib/vendor.ts.
   shiftType: string | null
   rosterShift: string | null
-  supervisor: string | null
+  vendor: string | null
 }
 export type DashLocation = {
   id: string
@@ -103,7 +105,7 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
       .order('name', { ascending: true }),
     supabase
       .from('employees')
-      .select('id, first_name, last_name, employee_number, location_id, shift_start, shift_end, pin_set, shift_type, supervisor:ops_users(name), vendor:vendors(supervisor_name)')
+      .select('id, first_name, last_name, employee_number, location_id, shift_start, shift_end, pin_set, shift_type, supervisor:ops_users(name), vendor:vendors(name, supervisor_name)')
       .eq('tenant_id', tenantId)
       .eq('active', true)
       .eq('role', 'picker'),
@@ -212,7 +214,7 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
         flagged: flaggedEmpIds.has(e.id),
         shiftType: e.shift_type ?? null,
         rosterShift: roster ? `${roster.start.slice(0, 5)}–${roster.end.slice(0, 5)}` : null,
-        supervisor: e.vendor?.supervisor_name ?? null,
+        vendor: vendorCode(e.vendor),
       }
     })
 

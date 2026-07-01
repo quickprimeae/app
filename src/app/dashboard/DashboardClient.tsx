@@ -388,7 +388,7 @@ export default function DashboardClient({
                           <div className="db-picker-id">{p.id}</div>
                           <div className="db-picker-meta">
                             <span className={`db-picker-roster ${p.rosterShift ? '' : 'none'}`}>{p.rosterShift ?? 'No shift assigned'}</span>
-                            {p.supervisor && <span className="db-picker-sup">{p.supervisor}</span>}
+                            {p.vendor && <span className="db-picker-sup">{p.vendor}</span>}
                           </div>
                         </div>
                         {showTime && (
