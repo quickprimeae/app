@@ -68,6 +68,54 @@ export function isAbsence(s: DerivedStatus): boolean {
   return s === 'absent'
 }
 
+// ── Location-level status ────────────────────────────────────────────────────
+// ONE canonical derivation shared by the dashboard grid + its KPI/filter chips,
+// AND the Locations page list + map pins. Keeping it here (not inline per
+// consumer) is what stops the card badge, the pins, and the chips from ever
+// drifting from each other.
+//
+// Priority (most decisive first):
+//   1. active   — >=1 picker currently clocked in (a clock_in today) at the
+//                 location. Real attendance WINS, roster or not: a picker who
+//                 clocked in on a no-roster day still makes the location active
+//                 (this is the divergence bug — active must beat 'noshift').
+//   2. noshow   — else, >=1 UNRESOLVED no-show alert for a picker here today
+//                 (GST). SAME alert rows as the KPI card / feed, never a
+//                 separate headcount tally, so all three always agree.
+//   3. late     — else, a rostered picker is in the 10–60 min late band (not in).
+//   4. noshift  — else, nobody has a roster today AND nobody is in.
+//   5. inactive — else: rostered, nobody in, but no genuine miss yet (shift not
+//                 started, inside grace, or the rostered pickers await PIN setup).
+export type LocationStatus = 'active' | 'noshow' | 'late' | 'inactive' | 'noshift'
+
+export type LocationSignals = {
+  /** Pickers currently clocked in (a clock_in today) at this location. */
+  clockedIn: number
+  /** >=1 unresolved no-show alert (type='noshow') for a picker here, today (GST). */
+  noshowAlert: boolean
+  /** >=1 rostered, set-up picker in the 10–60 min late band, not clocked in. */
+  latePicker: boolean
+  /** >=1 picker has a roster row today at this location. */
+  hasRoster: boolean
+}
+
+export function deriveLocationStatus(s: LocationSignals): LocationStatus {
+  if (s.clockedIn > 0) return 'active'
+  if (s.noshowAlert) return 'noshow'
+  if (s.latePicker) return 'late'
+  if (!s.hasRoster) return 'noshift'
+  return 'inactive'
+}
+
+// A rostered, set-up picker who has NOT clocked in and is past the grace but not
+// yet at the no-show cutoff is "running late" at the LOCATION level. Distinct
+// from the per-picker 'late', which requires an actual (late) clock-in.
+export function isRunningLate(rosterStartMin: number | null, nowMin: number): boolean {
+  if (rosterStartMin == null) return false
+  const mins = nowMin - rosterStartMin
+  return mins > LATE_GRACE_MIN && mins < NOSHOW_AFTER_MIN
+}
+
 export type StatusTone = 'green' | 'amber' | 'red' | 'grey'
 
 export const STATUS_META: Record<

@@ -416,7 +416,11 @@ export default function EmployeesClient({ initial, locations }: { initial: Emplo
                       { label: 'Location', val: selectedEmp.location },
                       { label: 'Branch', val: selectedEmp.branch ?? '—' },
                       { label: 'Supervisor', val: selectedEmp.supervisor ?? 'Unassigned' },
-                      { label: 'Shift', val: `${selectedEmp.shiftHours} · ${selectedEmp.shiftDays ?? '—'}${selectedEmp.personalShift ? ' (personal)' : ' (location default)'}` },
+                      // Today's ROSTERED shift wins (real times, no default tag);
+                      // fall back to the contracted default only when off-roster today.
+                      { label: 'Shift', val: selectedEmp.rosterHours
+                        ? `${selectedEmp.rosterHours} (rostered today)`
+                        : `${selectedEmp.shiftHours} · ${selectedEmp.shiftDays ?? '—'}${selectedEmp.personalShift ? ' (personal)' : ' (location default)'}` },
                       // 'Hourly rate' cell hidden for demo (pay). Value still on selectedEmp.
                       { label: 'PIN', val: selectedEmp.pinSet ? '✓ set up' : '⚠ not set' },
                     ].map((c) => (
@@ -445,13 +449,13 @@ export default function EmployeesClient({ initial, locations }: { initial: Emplo
                   {selectedEmp.clockedInAt ? (
                     <div className="ep-activity-row"><div className="ep-activity-dot" style={{ background: T.tealBright }} /><div className="ep-activity-label">Clocked in</div><div className="ep-activity-time">{fmt(selectedEmp.clockedInAt)}</div></div>
                   ) : selectedEmp.status === 'awaiting_setup' ? (
-                    <div className="ep-activity-row"><div className="ep-activity-dot" style={{ background: T.dim }} /><div className="ep-activity-label" style={{ color: T.dim }}>Awaiting PIN setup — can&apos;t clock in yet</div><div className="ep-activity-time">{selectedEmp.shiftHours}</div></div>
+                    <div className="ep-activity-row"><div className="ep-activity-dot" style={{ background: T.dim }} /><div className="ep-activity-label" style={{ color: T.dim }}>Awaiting PIN setup — can&apos;t clock in yet</div><div className="ep-activity-time">{selectedEmp.rosterHours ?? selectedEmp.shiftHours}</div></div>
                   ) : selectedEmp.status === 'deactivated' ? (
                     <div className="ep-activity-row"><div className="ep-activity-dot" style={{ background: T.dimMid }} /><div className="ep-activity-label" style={{ color: T.dimMid }}>Employee deactivated</div></div>
                   ) : selectedEmp.status === 'ready' ? (
-                    <div className="ep-activity-row"><div className="ep-activity-dot" style={{ background: T.dim }} /><div className="ep-activity-label" style={{ color: T.dim }}>Shift not started yet</div><div className="ep-activity-time">{selectedEmp.shiftHours}</div></div>
+                    <div className="ep-activity-row"><div className="ep-activity-dot" style={{ background: T.dim }} /><div className="ep-activity-label" style={{ color: T.dim }}>Shift not started yet</div><div className="ep-activity-time">{selectedEmp.rosterHours ?? selectedEmp.shiftHours}</div></div>
                   ) : (
-                    <div className="ep-activity-row"><div className="ep-activity-dot" style={{ background: T.red }} /><div className="ep-activity-label" style={{ color: T.red }}>No clock-in recorded</div><div className="ep-activity-time">{selectedEmp.shiftHours}</div></div>
+                    <div className="ep-activity-row"><div className="ep-activity-dot" style={{ background: T.red }} /><div className="ep-activity-label" style={{ color: T.red }}>No clock-in recorded</div><div className="ep-activity-time">{selectedEmp.rosterHours ?? selectedEmp.shiftHours}</div></div>
                   )}
                   {selectedEmp.flagged && (
                     <div className="ep-activity-row" style={{ borderColor: '#FCD34D' }}>

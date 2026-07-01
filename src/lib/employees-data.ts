@@ -24,7 +24,8 @@ export type EmployeeRow = {
   startDate: string | null
   hourlyRate: number
   shiftDays: string | null
-  shiftHours: string
+  shiftHours: string           // contracted shift (personal times, else location default)
+  rosterHours: string | null   // TODAY'S rostered shift (scheduled_shifts), null if off today
   personalShift: boolean
   status: DerivedStatus
   clockedInAt: string | null
@@ -173,6 +174,9 @@ export async function getEmployeesList(tenantId: string): Promise<EmployeeRow[]>
       hourlyRate: rate,
       shiftDays: e.shift_days ?? null,
       shiftHours: effStart && effEnd ? `${effStart.slice(0, 5)}–${effEnd.slice(0, 5)}` : '—',
+      // Today's actual rostered shift (if any) — preferred over the contracted
+      // default wherever the shift is shown, so the drawer reflects reality.
+      rosterHours: roster ? `${roster.start.slice(0, 5)}–${roster.end.slice(0, 5)}` : null,
       personalShift: !!(e.shift_start && e.shift_end),
       status,
       clockedInAt: ev?.timestamp ?? null,

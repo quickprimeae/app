@@ -3,8 +3,11 @@
 // breakdown, plus coords for the map.
 
 import { createServerSupabaseClient } from './supabase'
+import { deriveLocationStatus, isRunningLate, type LocationStatus } from './status'
+import { gstDay, gstMinutesOf, buildRosterMap } from './roster'
 
-export type LocStatus = 'active' | 'late' | 'noshow' | 'noshift'
+// Canonical location status (shared with the dashboard grid + map pins).
+export type LocStatus = LocationStatus
 export type LocPicker = { name: string; status: 'in' | 'absent' | 'expected' }
 export type LocationRow = {
   id: string
@@ -27,9 +30,11 @@ export type LocationRow = {
 
 export async function getLocationsList(tenantId: string): Promise<LocationRow[]> {
   const supabase = createServerSupabaseClient()
-  const today = new Date().toISOString().split('T')[0]
+  // Operational day + clock-in window in GST (the roster's calendar day) — the
+  // same convention the dashboard uses, so both pages agree on "today".
+  const gst = gstDay()
 
-  const [locRes, empRes, evtRes] = await Promise.all([
+  const [locRes, empRes, evtRes, schedRes, alertRes] = await Promise.all([
     supabase
       .from('locations')
       .select('id, name, chain, area, address, lat, lng, geofence_radius, shift_start, shift_end, shift_days, client:clients(name)')
@@ -38,7 +43,7 @@ export async function getLocationsList(tenantId: string): Promise<LocationRow[]>
       .order('name', { ascending: true }),
     supabase
       .from('employees')
-      .select('id, first_name, last_name, location_id, supervisor:ops_users(name)')
+      .select('id, first_name, last_name, location_id, pin_set, supervisor:ops_users(name)')
       .eq('tenant_id', tenantId)
       .eq('active', true)
       .eq('role', 'picker'),
@@ -48,20 +53,48 @@ export async function getLocationsList(tenantId: string): Promise<LocationRow[]>
       .eq('tenant_id', tenantId)
       .eq('event_type', 'clock_in')
       .eq('voided', false)
-      .gte('timestamp', `${today}T00:00:00Z`)
-      .lte('timestamp', `${today}T23:59:59Z`),
+      .gte('timestamp', gst.startUTC)
+      .lt('timestamp', gst.endUTC),
+    // Today's roster — SINGLE source for late (see src/lib/roster.ts).
+    supabase
+      .from('scheduled_shifts')
+      .select('employee_id, start_time, end_time')
+      .eq('tenant_id', tenantId)
+      .eq('date', gst.date)
+      .eq('status', 'scheduled'),
+    // No-show = the SAME alert rows the dashboard KPI card / feed count, so the
+    // pin/list badge never diverges from them.
+    supabase
+      .from('alerts')
+      .select('employee_id')
+      .eq('tenant_id', tenantId)
+      .eq('type', 'noshow')
+      .eq('resolved', false)
+      .gte('created_at', gst.startUTC)
+      .lt('created_at', gst.endUTC),
   ])
 
   const locations = (locRes.data ?? []) as any[]
   const employees = (empRes.data ?? []) as any[]
   const inSet = new Set(((evtRes.data ?? []) as any[]).map((e) => e.employee_id))
+  const rosterByEmp = buildRosterMap((schedRes.data ?? []) as any[])
+  const noshowEmpIds = new Set(((alertRes.data ?? []) as any[]).map((a) => a.employee_id).filter(Boolean))
+  const nowMin = gstMinutesOf(new Date())
 
   return locations.map((loc) => {
     const locEmps = employees.filter((e) => e.location_id === loc.id)
     const total = locEmps.length
     const clockedIn = locEmps.filter((e) => inSet.has(e.id)).length
-    const status: LocStatus =
-      total === 0 ? 'noshift' : clockedIn === 0 ? 'noshow' : clockedIn < total ? 'late' : 'active'
+    // ONE canonical derivation — identical to the dashboard grid + map pins.
+    const status: LocStatus = deriveLocationStatus({
+      clockedIn,
+      noshowAlert: locEmps.some((e) => noshowEmpIds.has(e.id)),
+      latePicker: locEmps.some((e) => {
+        const r = rosterByEmp.get(e.id)
+        return !!r && !inSet.has(e.id) && !!e.pin_set && isRunningLate(r.startMin, nowMin)
+      }),
+      hasRoster: locEmps.some((e) => rosterByEmp.has(e.id)),
+    })
     const pickers: LocPicker[] = locEmps.map((e) => ({
       name: `${e.first_name} ${e.last_name}`.trim(),
       status: inSet.has(e.id) ? 'in' : status === 'noshow' ? 'absent' : 'expected',

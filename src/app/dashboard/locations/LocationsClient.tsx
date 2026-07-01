@@ -14,6 +14,16 @@ import { T } from '@/lib/theme'
 
 type Filter = 'all' | 'active' | 'late' | 'noshow'
 
+// Location badge text — mirrors the canonical status set (deriveLocationStatus).
+// 'inactive' and 'noshift' both render (no longer collapse to a bare '–').
+function statusLabel(s: LocationRow['status']): string {
+  return s === 'active' ? '● Active'
+    : s === 'noshow' ? '✗ No-show'
+    : s === 'late' ? '⚠ Late'
+    : s === 'inactive' ? '○ Inactive'
+    : 'No shift'
+}
+
 // Defaults come from the shared LOCATION_DEFAULTS so the Add form and the bulk
 // importer start every new location from identical values (150 / Mon-Sun /
 // 08:00 / 23:59). These are editable starting values, not locked.
@@ -187,7 +197,7 @@ export default function LocationsClient({ initial }: { initial: LocationRow[] })
                   </div>
                   <div className="lp-list-right">
                     <div className={`lp-status-dot-label ${loc.status}`}>
-                      {loc.status === 'active' ? '● Active' : loc.status === 'noshow' ? '✗ No-show' : loc.status === 'late' ? '⚠ Late' : '–'}
+                      {statusLabel(loc.status)}
                     </div>
                     <div className="lp-attendance">{loc.clockedIn}/{loc.total}</div>
                   </div>
@@ -223,7 +233,7 @@ export default function LocationsClient({ initial }: { initial: LocationRow[] })
                       <div className="lp-detail-sub">{sel.address ?? sel.area ?? '—'}</div>
                     </div>
                     <div className={`lp-status-dot-label ${sel.status}`} style={{ fontSize: 11 }}>
-                      {sel.status === 'active' ? '● Active' : sel.status === 'noshow' ? '✗ No-show' : sel.status === 'late' ? '⚠ Late' : '–'}
+                      {statusLabel(sel.status)}
                     </div>
                   </div>
                   <div className="lp-detail-grid">
@@ -349,6 +359,7 @@ const css = `
 .lp-status-dot-label.noshow{background:${T.redBg};color:${T.red};border:1px solid #FCA5A5}
 .lp-status-dot-label.late{background:${T.amberBg};color:${T.amber};border:1px solid #FCD34D}
 .lp-status-dot-label.noshift{background:${T.bgSubtle};color:${T.dimMid};border:1px solid ${T.border}}
+.lp-status-dot-label.inactive{background:${T.bgSubtle};color:${T.dimMid};border:1px solid ${T.border}}
 .lp-attendance{font-family:'DM Mono',monospace;font-size:12px;color:${T.tealText};margin-top:4px}
 .lp-map-area{flex:1;background:${T.bgSubtle};border-bottom:1px solid ${T.border};position:relative;overflow:hidden}
 .lp-map-canvas{position:absolute;inset:0;width:100%;height:100%}

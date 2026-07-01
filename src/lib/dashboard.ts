@@ -4,11 +4,13 @@
 // Used by the /dashboard server component and the /api/attendance refresh route.
 
 import { createServerSupabaseClient } from './supabase'
-import { deriveStatus, type DerivedStatus, LATE_GRACE_MIN, NOSHOW_AFTER_MIN } from './status'
+import { deriveStatus, deriveLocationStatus, isRunningLate, type DerivedStatus, type LocationStatus } from './status'
 import { gstDay, gstMinutesOf, buildRosterMap } from './roster'
 
 export type PickerStatus = DerivedStatus
-export type LocationStatus = 'active' | 'late' | 'noshow' | 'inactive' | 'noshift'
+// Canonical location status now lives in ./status (shared with the Locations
+// page + map pins). Re-exported so existing importers of this type still resolve.
+export type { LocationStatus }
 
 export type DashPicker = {
   id: string
@@ -177,17 +179,12 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
   const dashLocations: DashLocation[] = locations.map((loc: any) => {
     const locEmps = employees.filter((e: any) => e.location_id === loc.id)
     const total = locEmps.length
-    let clockedIn = 0       // any clocked-in picker (for the "X/Y" display)
-    let scheduled = 0       // pickers with a roster row today
-    // Location-status tallies over ROSTERED pickers only, off the same roster
-    // times + thresholds as the per-picker status (single source). No-show / late
-    // mean a GENUINE miss, so they are driven ONLY by fully-set-up pickers (PIN
-    // set) who could have clocked in. A rostered awaiting_setup picker (no PIN)
-    // physically can't clock in, so it never makes the location late/no-show —
-    // it contributes to 'inactive' only.
-    let clockedInRostered = 0 // rostered AND clocked in -> the only path to "active"
-    let startedNoShow = 0     // rostered, PIN-set, started, >= no-show cutoff, not in
-    let startedLate = 0       // rostered, PIN-set, started, in the 10–60 min band, not in
+    // Signals for the canonical deriveLocationStatus (single source, shared with
+    // the Locations page + map pins):
+    let clockedIn = 0        // any clocked-in picker (drives "X/Y" display AND active)
+    let scheduled = 0        // pickers with a roster row today (hasRoster)
+    let latePicker = false   // >=1 rostered, set-up, not-in picker in the 10–60 band
+    let noshowAlert = false  // >=1 unresolved no-show alert today for a picker here
 
     const pickers: DashPicker[] = locEmps.map((e: any) => {
       const ev = byEmployee.get(e.id)
@@ -195,21 +192,14 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
       // store-hours fallback. null roster start => no shift today.
       const roster = rosterByEmployee.get(e.id)
       if (ev) clockedIn++
-      if (roster) {
-        scheduled++
-        if (ev) {
-          clockedInRostered++
-        } else if (e.pin_set) {
-          // Only a SET-UP picker (could have clocked in) whose STARTED shift
-          // (roster start has passed, GST) is past a threshold is a genuine
-          // miss. Not-yet-started, or no-PIN, pickers never count here.
-          const minsSinceStart = nowMin - roster.startMin
-          if (minsSinceStart >= NOSHOW_AFTER_MIN) startedNoShow++
-          else if (minsSinceStart > LATE_GRACE_MIN) startedLate++
-          // 0–10 min (grace) or not started yet => neither; reads as 'inactive'.
-        }
-        // else: awaiting_setup (no PIN) -> can't have missed anything -> inactive.
-      }
+      if (roster) scheduled++
+      // No-show is driven by the ALERT the engine fired (the SAME rows as the KPI
+      // card / feed), never an app-side headcount — so badge = chip = feed. Late
+      // stays app-derived from the roster band, and only a rostered, SET-UP picker
+      // (could have clocked in) who isn't in counts.
+      if (noshowPickerIds.has(e.id)) noshowAlert = true
+      if (roster && !ev && e.pin_set && isRunningLate(roster.startMin, nowMin)) latePicker = true
+
       const pstatus = deriveStatus({
         active: true, // query already filters active = true
         pinSet: !!e.pin_set,
@@ -229,20 +219,11 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
       }
     })
 
-    // Location status (Option B — "active" REQUIRES real attendance). Evaluated
-    // over rostered pickers only:
-    //   noshift  — nobody has a roster shift today (no coverage expected)
-    //   active   — at least one rostered picker is clocked in  (NEVER with 0 in)
-    //   noshow   — nobody in, and a started, SET-UP picker is past the no-show cutoff
-    //   late     — nobody in, and a started, SET-UP picker is in the 10–60 min band
-    //   inactive — rostered, but no genuine miss: shift not started yet, still in
-    //              the 0–10 grace, or the rostered pickers are awaiting_setup
-    const status: LocationStatus =
-      scheduled === 0 ? 'noshift'
-      : clockedInRostered > 0 ? 'active'
-      : startedNoShow > 0 ? 'noshow'
-      : startedLate > 0 ? 'late'
-      : 'inactive'
+    // ONE canonical derivation — same function the Locations page + map pins use,
+    // so the card badge, chips, filters, and pins can never drift. "active" wins
+    // on any real clock-in (roster or not), fixing the no-roster-but-clocked-in
+    // divergence where a location read 'noshift' while a picker was in.
+    const status = deriveLocationStatus({ clockedIn, noshowAlert, latePicker, hasRoster: scheduled > 0 })
 
     const supervisor =
       (locEmps.find((e: any) => e.supervisor?.name)?.supervisor?.name as string) ?? null
