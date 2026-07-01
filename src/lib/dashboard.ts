@@ -49,7 +49,8 @@ export type DashKpis = {
   totalLocations: number
   clockedIn: number
   totalPickers: number
-  noshow: number
+  noshow: number        // locations currently in a no-show state (drives the filter chip)
+  noshowPickers: number // distinct pickers with an unresolved no-show alert today (the KPI card)
   late: number
   flagged: number
 }
@@ -67,8 +68,14 @@ const ALERT_ICON: Record<string, string> = {
   system: '🔔',
 }
 
-function hhmm(iso: string) {
-  return new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+// Alert-feed timestamp. Rendered in GST (Asia/Dubai) WITH the date so the
+// column matches the alert body's "(GST)" — e.g. "27 Jun · 15:15". Display
+// only: created_at is still stored/queried as UTC.
+function gstStamp(iso: string) {
+  const d = new Date(iso)
+  const date = d.toLocaleDateString('en-GB', { timeZone: 'Asia/Dubai', day: 'numeric', month: 'short' })
+  const time = d.toLocaleTimeString('en-GB', { timeZone: 'Asia/Dubai', hour: '2-digit', minute: '2-digit' })
+  return `${date} · ${time}`
 }
 
 // "Muhammad Hassan" -> "Muhammad H." so duplicate first names are distinguishable
@@ -140,6 +147,16 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
   // not count toward the pending KPI.
   const pendingFace = alertRows.filter((a) => a.type === 'faceflag' && a.review_result == null)
   const flaggedEmpIds = new Set<string>(pendingFace.map((a) => a.employee_id).filter(Boolean))
+
+  // No-show KPI card = distinct pickers with an unresolved noshow alert fired
+  // TODAY (GST). Sourced from the SAME alert rows the feed and the Alerts page
+  // count (alerts.type='noshow', resolved=false), so the card agrees with them
+  // instead of the location-status tally. detect_noshows is the single producer.
+  const noshowPickerIds = new Set<string>(
+    alertRows
+      .filter((a) => a.type === 'noshow' && a.employee_id && a.created_at >= gst.startUTC && a.created_at < gst.endUTC)
+      .map((a) => a.employee_id),
+  )
 
   // employee_id -> earliest clock-in today
   const byEmployee = new Map<string, { timestamp: string; flagged: boolean }>()
@@ -251,7 +268,7 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
     icon: ALERT_ICON[a.type] ?? '🔔',
     title: a.title,
     sub: a.body ?? '',
-    time: hhmm(a.created_at),
+    time: gstStamp(a.created_at),
   }))
 
   const kpis: DashKpis = {
@@ -260,6 +277,7 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
     clockedIn: dashLocations.reduce((s, l) => s + l.clockedIn, 0),
     totalPickers: dashLocations.reduce((s, l) => s + l.total, 0),
     noshow: dashLocations.filter((l) => l.status === 'noshow').length,
+    noshowPickers: noshowPickerIds.size,
     late: dashLocations.filter((l) => l.status === 'late').length,
     // Pending face flags tenant-wide (single source: the alerts table).
     flagged: pendingFace.length,

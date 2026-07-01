@@ -201,13 +201,13 @@ export default function DashboardClient({
             </div>
             <div className="db-kpi alert">
               <div className="db-kpi-label">No-shows</div>
-              <div className="db-kpi-val red">{kpis.noshow}</div>
-              <div className="db-kpi-sub">locations with 0 attendance</div>
+              <div className="db-kpi-val red">{kpis.noshowPickers}</div>
+              <div className="db-kpi-sub">pickers not clocked in 60 min after shift start</div>
             </div>
             <div className="db-kpi warn">
-              <div className="db-kpi-label">Late / partial</div>
+              <div className="db-kpi-label">Late</div>
               <div className="db-kpi-val amber">{kpis.late}</div>
-              <div className="db-kpi-sub">locations missing ≥1 picker</div>
+              <div className="db-kpi-sub">locations with a late picker</div>
             </div>
             <Link href="/dashboard/alerts?tab=faceflag" className="db-kpi warn" style={{ textDecoration: 'none', display: 'block' }}>
               <div className="db-kpi-label">Face match flags</div>
@@ -263,7 +263,7 @@ export default function DashboardClient({
               { id: 'all', label: `All (${locations.length})`, dot: '#8A9A9A', cls: '' },
               { id: 'active', label: `Active (${kpis.active})`, dot: T.tealBright, cls: '' },
               { id: 'noshow', label: `No-show (${kpis.noshow})`, dot: T.red, cls: 'red-f' },
-              { id: 'late', label: `Late / partial (${kpis.late})`, dot: T.amber, cls: 'amber-f' },
+              { id: 'late', label: `Late (${kpis.late})`, dot: T.amber, cls: 'amber-f' },
               { id: 'flagged', label: `Flagged (${kpis.flagged})`, dot: T.amber, cls: 'amber-f' },
             ] as const).map((f) => (
               <button
