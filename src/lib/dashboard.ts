@@ -47,7 +47,9 @@ export type DashAlert = {
   icon: string
   title: string
   sub: string
-  time: string
+  // Raw created_at (ISO/UTC). The client formats the relative GST age at render
+  // (see src/lib/time.ts gstRelative) so it recomputes on each tick/poll.
+  createdAt: string
 }
 export type DashKpis = {
   active: number
@@ -71,16 +73,6 @@ const ALERT_ICON: Record<string, string> = {
   faceflag: '🔍',
   clockout: '⏹',
   system: '🔔',
-}
-
-// Alert-feed timestamp. Rendered in GST (Asia/Dubai) WITH the date so the
-// column matches the alert body's "(GST)" — e.g. "27 Jun · 15:15". Display
-// only: created_at is still stored/queried as UTC.
-function gstStamp(iso: string) {
-  const d = new Date(iso)
-  const date = d.toLocaleDateString('en-GB', { timeZone: 'Asia/Dubai', day: 'numeric', month: 'short' })
-  const time = d.toLocaleTimeString('en-GB', { timeZone: 'Asia/Dubai', hour: '2-digit', minute: '2-digit' })
-  return `${date} · ${time}`
 }
 
 // "Muhammad Hassan" -> "Muhammad H." so duplicate first names are distinguishable
@@ -248,7 +240,7 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
     icon: ALERT_ICON[a.type] ?? '🔔',
     title: a.title,
     sub: a.body ?? '',
-    time: gstStamp(a.created_at),
+    createdAt: a.created_at,
   }))
 
   const kpis: DashKpis = {

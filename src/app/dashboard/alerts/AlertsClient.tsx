@@ -1,14 +1,15 @@
 'use client'
 // src/app/dashboard/alerts/AlertsClient.tsx
 // Alerts triage: type filter, critical/warning sections, expand to add a
-// resolution note and resolve (PATCH /api/alerts). relTime computes "now" on
-// each call (bug #2 fix — no stale module-level Date).
+// resolution note and resolve (PATCH /api/alerts). Timestamps use the shared
+// GST formatters (src/lib/time.ts) and a 30s tick so relative ages stay fresh.
 
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 import { T } from '@/lib/theme'
+import { gstStamp, gstRelative } from '@/lib/time'
 
 export type AlertItem = {
   id: string
@@ -44,20 +45,25 @@ const TYPE_META: Record<string, { icon: string; color: string; bg: string; borde
   system: { icon: '⚙️', color: T.dim, bg: T.bgSubtle, border: T.border },
 }
 
-// "now" is read on every call so relative times never go stale (bug #2).
-function relTime(iso: string) {
-  const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 60000)
-  if (diff < 1) return 'just now'
-  if (diff < 60) return `${diff}m ago`
-  const h = Math.floor(diff / 60)
-  if (h < 24) return `${h}h ago`
-  return `${Math.floor(h / 24)}d ago`
+// Relative GST age + the exact GST stamp, sharing src/lib/time.ts so the alerts
+// page and the dashboard feed format identically. The exact stamp is shown only
+// when the relative form isn't already absolute (avoids "30 Jun · 14:00" twice).
+function alertAge(iso: string, nowMs: number | null) {
+  const exact = gstStamp(iso)
+  const rel = nowMs != null ? gstRelative(iso, nowMs) : exact
+  return { rel, exact, showExact: rel !== exact }
 }
-function fmtTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-}
-function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+
+// Ticks every 30s so relative ages recompute without a data refresh. null until
+// mounted, so SSR and the first client render agree (no hydration mismatch).
+function useNowMs(): number | null {
+  const [nowMs, setNowMs] = useState<number | null>(null)
+  useEffect(() => {
+    setNowMs(Date.now())
+    const t = setInterval(() => setNowMs(Date.now()), 30000)
+    return () => clearInterval(t)
+  }, [])
+  return nowMs
 }
 
 type TypeFilter = 'all' | 'noshow' | 'late' | 'faceflag' | 'clockout'
@@ -253,6 +259,7 @@ function AlertCard({ alert, focus, isExpanded, busy, onToggle, onResolve, note, 
   delay: number
 }) {
   const meta = TYPE_META[alert.type] || TYPE_META.system
+  const age = alertAge(alert.createdAt, useNowMs())
   // A committed face flag (has a clock_event_id -> selfie + reference) must be
   // settled THROUGH the image review, not plain-resolved (which would leave
   // clock_events.face_match_flagged = true on the punch). Route it to the queue.
@@ -278,7 +285,7 @@ function AlertCard({ alert, focus, isExpanded, busy, onToggle, onResolve, note, 
           )}
         </div>
         <div className="al-card-right">
-          <div className="al-card-time">{fmtDate(alert.createdAt)} · {fmtTime(alert.createdAt)}<br /><span style={{ color: T.dimMid }}>{relTime(alert.createdAt)}</span></div>
+          <div className="al-card-time">{age.rel}{age.showExact && <><br /><span style={{ color: T.dimMid }}>{age.exact}</span></>}</div>
           <div className={`al-sev-badge ${alert.resolved ? 'resolved-b' : alert.severity}`}>{alert.resolved ? '✓ Resolved' : alert.severity}</div>
         </div>
       </div>
@@ -353,6 +360,7 @@ function FlagCard({ a, focus, busy, onReview, rejected }: {
 }) {
   const ref = useRef<HTMLDivElement | null>(null)
   useEffect(() => { if (focus && ref.current) ref.current.scrollIntoView({ behavior: 'smooth', block: 'center' }) }, [focus])
+  const age = alertAge(a.createdAt, useNowMs())
   const tone = distanceTone(a.distance)
   const isLockout = !a.clockEventId // 3-block repeated-mismatch alert: no captured frame
   return (
@@ -360,7 +368,7 @@ function FlagCard({ a, focus, busy, onReview, rejected }: {
       <div className="ff-head">
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="ff-name">{a.employeeName}{a.empId && <span className="ff-empid">{a.empId}</span>}</div>
-          <div className="ff-meta">📍 {a.locationName.split(' — ')[0]} · {fmtDate(a.createdAt)} {fmtTime(a.createdAt)} · {relTime(a.createdAt)}</div>
+          <div className="ff-meta">📍 {a.locationName.split(' — ')[0]} · {age.rel}{age.showExact ? ` · ${age.exact}` : ''}</div>
         </div>
         {!isLockout && <div className="ff-dist" style={{ color: tone.color, borderColor: tone.color }}>dist {tone.label}</div>}
         {rejected && <div className="ff-rej-badge">⛔ Rejected{a.reviewedByName ? ` · ${a.reviewedByName}` : ''}</div>}

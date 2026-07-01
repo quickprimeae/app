@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation'
 import { createBrowserSupabaseClient } from '@/lib/supabase'
 import type { DashboardData, DashLocation } from '@/lib/dashboard'
 import { STATUS_META, type DerivedStatus } from '@/lib/status'
+import { gstRelative, gstStamp } from '@/lib/time'
 
 // Map a derived status to the picker-chip CSS variant (tone). awaiting_setup and
 // ready are both grey; flagged overrides everything.
@@ -239,7 +240,10 @@ export default function DashboardClient({
                       <div className="db-alert-title">{a.title}</div>
                       <div className="db-alert-sub">{a.sub}</div>
                     </div>
-                    <div className="db-alert-time">{a.time}</div>
+                    {/* Relative GST age, recomputed each second via `now`; falls
+                        back to the absolute GST stamp pre-mount to avoid a
+                        hydration mismatch. */}
+                    <div className="db-alert-time">{now ? gstRelative(a.createdAt, now.getTime()) : gstStamp(a.createdAt)}</div>
                     <span className="db-alert-action">Review →</span>
                   </Link>
                 ))}
