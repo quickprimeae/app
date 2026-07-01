@@ -51,6 +51,10 @@ export default function RosterClient({
   const [form, setForm] = useState<{ start: string; end: string }>({ start: '08:00', end: '19:00' })
   const [coverMode, setCoverMode] = useState(false)
   const [coverEmpId, setCoverEmpId] = useState('')
+  // Bulk "Apply to whole week" sub-panel: applyMode toggles it; applyOff is the
+  // chosen off day (ISO) or null for none.
+  const [applyMode, setApplyMode] = useState(false)
+  const [applyOff, setApplyOff] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -100,6 +104,8 @@ export default function RosterClient({
     setError(null)
     setCoverMode(false)
     setCoverEmpId('')
+    setApplyMode(false)
+    setApplyOff(null)
     if (shift && shift.status !== 'cancelled') {
       setForm({ start: shift.start, end: shift.end })
     } else {
@@ -150,6 +156,53 @@ export default function RosterClient({
       })
       const body = await res.json()
       if (!res.ok) { setError(body.error || 'Could not cancel.'); return }
+      setEdit(null)
+      router.refresh()
+    } catch {
+      setError('Network error.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // Bulk actions — scoped to THIS picker + the currently-viewed week only. Both
+  // hit /api/schedule/week, which overwrites the whole week in one atomic upsert
+  // (reusing the Add-shift scheduled/soft-cancel semantics). "Behaves the same
+  // regardless of which day's + opened it" — they act on the week, not edit.date.
+  async function copyLastWeek() {
+    if (!edit) return
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/schedule/week', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'copy_prior', employee_id: edit.employee.id, location_id: edit.employee.locationId, dates }),
+      })
+      const body = await res.json()
+      if (!res.ok) { setError(body.error || 'Could not copy last week.'); return }
+      setEdit(null)
+      router.refresh()
+    } catch {
+      setError('Network error.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function applyToWeek() {
+    if (!edit) return
+    if (form.end <= form.start) { setError('End time must be after start time.'); return }
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/schedule/week', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'apply', employee_id: edit.employee.id, location_id: edit.employee.locationId, dates, start_time: form.start, end_time: form.end, off_date: applyOff }),
+      })
+      const body = await res.json()
+      if (!res.ok) { setError(body.error || 'Could not apply to week.'); return }
       setEdit(null)
       router.refresh()
     } catch {
@@ -319,7 +372,34 @@ export default function RosterClient({
                 <button className="rs-close" onClick={() => setEdit(null)} disabled={busy}>✕</button>
               </div>
 
-              {coverMode ? (
+              {applyMode ? (
+                <>
+                  <div className="rs-modal-note">
+                    Apply <strong>{form.start}–{form.end}</strong> to every day of {rangeLabel(dates[0], dates[6])} for <strong>{edit.employee.name.split(' ')[0]}</strong>. Pick one day off, or none — the other days are overwritten.
+                  </div>
+                  <div className="rs-modal-body" style={{ flexWrap: 'wrap', gap: 8 }}>
+                    {dates.map((d) => {
+                      const h = dayHeader(d)
+                      const isOff = applyOff === d
+                      return (
+                        <button key={d} type="button" className={`rs-day-chip ${isOff ? 'off' : ''}`} onClick={() => setApplyOff(isOff ? null : d)} disabled={busy}>
+                          {h.wd} <span className="rs-day-chip-dm">{h.dm}</span>{isOff ? ' · OFF' : ''}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <div className="rs-modal-note" style={{ fontSize: 11 }}>
+                    {applyOff
+                      ? <>{dayHeader(applyOff).wd} {dayHeader(applyOff).dm} is off (cleared); the other 6 days get {form.start}–{form.end}.</>
+                      : <>No day off — all 7 days get {form.start}–{form.end}.</>}
+                  </div>
+                  {error && <div className="rs-modal-err">{error}</div>}
+                  <div className="rs-modal-actions">
+                    <button className="rs-btn ghost" onClick={() => { setApplyMode(false); setApplyOff(null); setError(null) }} disabled={busy}>← Back</button>
+                    <button className="rs-btn primary" onClick={applyToWeek} disabled={busy}>{busy ? 'Applying…' : `Apply to ${applyOff ? 6 : 7} days`}</button>
+                  </div>
+                </>
+              ) : coverMode ? (
                 <>
                   <div className="rs-modal-note">
                     Assign someone to cover <strong>{edit.employee.name.split(' ')[0]}</strong> on {dayHeader(edit.date).wd} {dayHeader(edit.date).dm}.
@@ -363,6 +443,14 @@ export default function RosterClient({
                       <span>End</span>
                       <input type="time" value={form.end} onChange={(e) => setForm((f) => ({ ...f, end: e.target.value }))} />
                     </label>
+                  </div>
+
+                  <div className="rs-bulk">
+                    <div className="rs-bulk-label">Whole week · {rangeLabel(dates[0], dates[6])}</div>
+                    <div className="rs-bulk-btns">
+                      <button className="rs-btn ghost" onClick={copyLastWeek} disabled={busy}>📋 Copy last week</button>
+                      <button className="rs-btn ghost" onClick={() => { setApplyMode(true); setError(null) }} disabled={busy}>📆 Apply {form.start}–{form.end} to week →</button>
+                    </div>
                   </div>
 
                   {error && <div className="rs-modal-err">{error}</div>}
@@ -465,6 +553,14 @@ const css = `
 .rs-group-name{font-size:12px;font-weight:700;color:${T.white};letter-spacing:.02em}
 .rs-group-timings{font-family:'DM Mono',monospace;font-size:11px;color:${T.dim};margin-left:10px}
 .rs-group-count{font-size:11px;color:${T.dim};margin-left:10px}
+.rs-bulk{margin-top:14px;padding-top:14px;border-top:1px solid ${T.border}}
+.rs-bulk-label{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${T.dim};margin-bottom:8px}
+.rs-bulk-btns{display:flex;gap:8px;flex-wrap:wrap}
+.rs-day-chip{padding:8px 10px;border-radius:8px;border:1px solid ${T.border};background:${T.bgSubtle};color:${T.white};font-family:var(--font-jakarta),sans-serif;font-size:12px;font-weight:600;cursor:pointer}
+.rs-day-chip:hover:not(:disabled){border-color:${T.borderMid}}
+.rs-day-chip:disabled{opacity:.5;cursor:not-allowed}
+.rs-day-chip.off{background:${T.redBg};border-color:${T.red};color:${T.red}}
+.rs-day-chip-dm{color:${T.dim};font-weight:500;margin-left:2px}
 .rs-cell-td{padding:5px;border-bottom:1px solid ${T.border};text-align:center}
 .rs-cell-td.today{background:rgba(13,31,24,.4)}
 .rs-cell{width:100%;min-height:38px;border-radius:8px;border:1px solid transparent;background:none;cursor:pointer;font-family:'DM Mono',monospace;font-size:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:6px 4px;transition:background .1s,border-color .1s}
