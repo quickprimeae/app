@@ -6,6 +6,7 @@
 import { createServerSupabaseClient } from './supabase'
 import { deriveStatus, deriveLocationStatus, isRunningLate, type DerivedStatus, type LocationStatus } from './status'
 import { gstDay, gstMinutesOf, buildRosterMap } from './roster'
+import { sessionsByEmployee, type SessionEvent } from './sessions'
 
 export type PickerStatus = DerivedStatus
 // Canonical location status now lives in ./status (shared with the Locations
@@ -106,11 +107,13 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
       .eq('tenant_id', tenantId)
       .eq('active', true)
       .eq('role', 'picker'),
+    // BOTH punch types today — "currently in" is an OPEN session (clock_in with
+    // no later clock_out), derived by sessionsByEmployee. See src/lib/sessions.ts.
     supabase
       .from('clock_events')
-      .select('employee_id, timestamp, face_match_flagged')
+      .select('employee_id, event_type, timestamp, face_match_flagged')
       .eq('tenant_id', tenantId)
-      .eq('event_type', 'clock_in')
+      .in('event_type', ['clock_in', 'clock_out'])
       .eq('voided', false)
       .gte('timestamp', gst.startUTC)
       .lt('timestamp', gst.endUTC),
@@ -135,7 +138,7 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
   // infers to-one embeds (client, supervisor) as arrays.
   const locations = (locRes.data ?? []) as any[]
   const employees = (empRes.data ?? []) as any[]
-  const events = (evtRes.data ?? []) as { employee_id: string; timestamp: string; face_match_flagged: boolean | null }[]
+  const events = (evtRes.data ?? []) as SessionEvent[]
   const alertRows = (alertRes.data ?? []) as any[]
   const scheduled = (schedRes.data ?? []) as { employee_id: string; start_time: string; end_time: string }[]
 
@@ -160,17 +163,9 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
       .map((a) => a.employee_id),
   )
 
-  // employee_id -> earliest clock-in today
-  const byEmployee = new Map<string, { timestamp: string; flagged: boolean }>()
-  for (const e of events) {
-    const existing = byEmployee.get(e.employee_id)
-    if (!existing || e.timestamp < existing.timestamp) {
-      byEmployee.set(e.employee_id, {
-        timestamp: e.timestamp,
-        flagged: !!e.face_match_flagged,
-      })
-    }
-  }
+  // employee_id -> today's session (open = currently in). Single source for the
+  // "X/Y in" counter, the KPI, and the ACTIVE badge, so they can never diverge.
+  const sessions = sessionsByEmployee(events)
 
   // Current time-of-day in GST (minutes since midnight) — same convention as the
   // roster start/end minutes, so they compare directly.
@@ -181,29 +176,31 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
     const total = locEmps.length
     // Signals for the canonical deriveLocationStatus (single source, shared with
     // the Locations page + map pins):
-    let clockedIn = 0        // any clocked-in picker (drives "X/Y" display AND active)
+    let clockedIn = 0        // OPEN sessions (drives "X/Y" display AND active)
     let scheduled = 0        // pickers with a roster row today (hasRoster)
     let latePicker = false   // >=1 rostered, set-up, not-in picker in the 10–60 band
     let noshowAlert = false  // >=1 unresolved no-show alert today for a picker here
 
     const pickers: DashPicker[] = locEmps.map((e: any) => {
-      const ev = byEmployee.get(e.id)
+      const s = sessions.get(e.id)
+      const open = !!s?.open // currently IN (clock_in, no later clock_out)
       // Roster is the SINGLE source of expected times — no employee/location
       // store-hours fallback. null roster start => no shift today.
       const roster = rosterByEmployee.get(e.id)
-      if (ev) clockedIn++
+      if (open) clockedIn++
       if (roster) scheduled++
       // No-show is driven by the ALERT the engine fired (the SAME rows as the KPI
       // card / feed), never an app-side headcount — so badge = chip = feed. Late
       // stays app-derived from the roster band, and only a rostered, SET-UP picker
       // (could have clocked in) who isn't in counts.
       if (noshowPickerIds.has(e.id)) noshowAlert = true
-      if (roster && !ev && e.pin_set && isRunningLate(roster.startMin, nowMin)) latePicker = true
+      if (roster && !open && e.pin_set && isRunningLate(roster.startMin, nowMin)) latePicker = true
 
       const pstatus = deriveStatus({
         active: true, // query already filters active = true
         pinSet: !!e.pin_set,
-        clockInMin: ev ? gstMinutesOf(new Date(ev.timestamp)) : null,
+        clockInMin: open && s?.clockInAt ? gstMinutesOf(new Date(s.clockInAt)) : null,
+        clockedOutToday: !!s?.clockedOut,
         rosterStartMin: roster?.startMin ?? null,
         nowMin,
       })
@@ -211,7 +208,7 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
         id: e.employee_number || e.id.slice(0, 8),
         name: shortName(e.first_name, e.last_name),
         status: pstatus,
-        clockedInAt: ev?.timestamp ?? null,
+        clockedInAt: open ? s?.clockInAt ?? null : null,
         flagged: flaggedEmpIds.has(e.id),
         shiftType: e.shift_type ?? null,
         rosterShift: roster ? `${roster.start.slice(0, 5)}–${roster.end.slice(0, 5)}` : null,

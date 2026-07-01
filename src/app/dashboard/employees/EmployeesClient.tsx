@@ -15,6 +15,7 @@ import { STATUS_META, type DerivedStatus } from '@/lib/status'
 const BADGE_CLASS: Record<DerivedStatus, string> = {
   clocked_in: 'active',
   late: 'late',
+  clocked_out: 'ready',
   absent: 'absent',
   ready: 'ready',
   no_schedule: 'awaiting',
@@ -39,6 +40,7 @@ type StatusFilter =
   | 'all'
   | 'clocked_in'
   | 'late'
+  | 'clocked_out'
   | 'absent'
   | 'ready'
   | 'no_schedule'
@@ -112,7 +114,11 @@ export default function EmployeesClient({ initial, locations }: { initial: Emplo
     all: ALL.length,
     clocked_in: ALL.filter((e) => e.status === 'clocked_in').length,
     late: ALL.filter((e) => e.status === 'late').length,
+    clocked_out: ALL.filter((e) => e.status === 'clocked_out').length,
     absent: ALL.filter((e) => e.status === 'absent').length,
+    // CUMULATIVE: clocked in at ANY point today (still counts those now out).
+    // Powers the "Clocked in today" summary tile, kept deliberately cumulative.
+    clocked_in_today_ever: ALL.filter((e) => e.clockedInTodayEver).length,
     ready: ALL.filter((e) => e.status === 'ready').length,
     no_schedule: ALL.filter((e) => e.status === 'no_schedule').length,
     awaiting_setup: ALL.filter((e) => e.status === 'awaiting_setup').length,
@@ -297,6 +303,7 @@ export default function EmployeesClient({ initial, locations }: { initial: Emplo
                 { id: 'all', label: 'All employees', dot: T.dim },
                 { id: 'clocked_in', label: 'Clocked in', dot: T.tealBright },
                 { id: 'late', label: 'Late', dot: T.amber },
+                { id: 'clocked_out', label: 'Clocked out', dot: T.dimMid },
                 { id: 'absent', label: 'No-Show', dot: T.red },
                 { id: 'ready', label: 'Ready', dot: T.dimMid },
                 { id: 'no_schedule', label: 'No schedule', dot: T.amber },
@@ -317,7 +324,7 @@ export default function EmployeesClient({ initial, locations }: { initial: Emplo
           <main className="ep-main">
             <div className="ep-stats">
               <div className="ep-stat"><div className="ep-stat-val" style={{ color: T.white }}>{counts.all}</div><div className="ep-stat-label">Total employees</div></div>
-              <div className="ep-stat"><div className="ep-stat-val" style={{ color: T.tealBright }}>{counts.clocked_in}</div><div className="ep-stat-label">Clocked in today</div></div>
+              <div className="ep-stat"><div className="ep-stat-val" style={{ color: T.tealBright }}>{counts.clocked_in_today_ever}</div><div className="ep-stat-label">Clocked in today</div></div>
               <div className="ep-stat"><div className="ep-stat-val" style={{ color: T.red }}>{counts.absent}</div><div className="ep-stat-label">No-Show</div></div>
               <div className="ep-stat"><div className="ep-stat-val" style={{ color: T.amber }}>{counts.flagged}</div><div className="ep-stat-label">Face flags pending</div></div>
             </div>
@@ -446,8 +453,13 @@ export default function EmployeesClient({ initial, locations }: { initial: Emplo
 
                 <div className="ep-drawer-section">
                   <div className="ep-drawer-section-title">Today&apos;s activity</div>
-                  {selectedEmp.clockedInAt ? (
+                  {(selectedEmp.status === 'clocked_in' || selectedEmp.status === 'late') && selectedEmp.clockedInAt ? (
                     <div className="ep-activity-row"><div className="ep-activity-dot" style={{ background: T.tealBright }} /><div className="ep-activity-label">Clocked in</div><div className="ep-activity-time">{fmt(selectedEmp.clockedInAt)}</div></div>
+                  ) : selectedEmp.status === 'clocked_out' ? (
+                    <>
+                      <div className="ep-activity-row"><div className="ep-activity-dot" style={{ background: T.tealBright }} /><div className="ep-activity-label">Clocked in</div><div className="ep-activity-time">{fmt(selectedEmp.clockedInAt)}</div></div>
+                      <div className="ep-activity-row"><div className="ep-activity-dot" style={{ background: T.dimMid }} /><div className="ep-activity-label" style={{ color: T.dim }}>Clocked out</div><div className="ep-activity-time">{fmt(selectedEmp.clockedOutAt)}</div></div>
+                    </>
                   ) : selectedEmp.status === 'awaiting_setup' ? (
                     <div className="ep-activity-row"><div className="ep-activity-dot" style={{ background: T.dim }} /><div className="ep-activity-label" style={{ color: T.dim }}>Awaiting PIN setup — can&apos;t clock in yet</div><div className="ep-activity-time">{selectedEmp.rosterHours ?? selectedEmp.shiftHours}</div></div>
                   ) : selectedEmp.status === 'deactivated' ? (

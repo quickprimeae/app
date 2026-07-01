@@ -10,14 +10,19 @@
 //   1. deactivated    — employee is inactive; can't clock in at all.
 //   2. awaiting_setup  — active but hasn't set a PIN yet. They physically
 //                        cannot clock in, so they are NEVER an absence/no-show.
-//   3. clocked_in / late — has a clock-in today (late = clocked in more than
-//                        LATE_GRACE_MIN after the roster start).
-//   4. no_schedule     — pin set, NOT clocked in, and NO roster row today. They
+//   3. clocked_in / late — has an OPEN session (clock-in today, not yet clocked
+//                        out). late = clocked in more than LATE_GRACE_MIN after
+//                        the roster start.
+//   4. clocked_out     — clocked in earlier today and has since clocked out
+//                        (session closed — worked, then left). This is NOT a
+//                        no-show: they showed up. Auto-clockout (12h) also lands
+//                        a picker here.
+//   5. no_schedule     — pin set, NOT clocked in, and NO roster row today. They
 //                        are OFF: never late, never a no-show. Surfaced so an
 //                        admin knows to add a schedule entry.
-//   5. ready           — rostered, not clocked in, still inside the no-show
+//   6. ready           — rostered, not clocked in, still inside the no-show
 //                        grace window (less than NOSHOW_AFTER_MIN past start).
-//   6. absent          — rostered, not clocked in, NOSHOW_AFTER_MIN past start.
+//   7. absent          — rostered, NEVER clocked in, NOSHOW_AFTER_MIN past start.
 
 // Thresholds, in minutes from the ROSTER start_time (GST). A clock-in within the
 // grace is on time; beyond it is late. A picker who has not clocked in by the
@@ -29,6 +34,7 @@ export const NOSHOW_AFTER_MIN = 60 // not in by 60 min (1 hr) past start = no-sh
 export type DerivedStatus =
   | 'clocked_in'
   | 'late'
+  | 'clocked_out'
   | 'absent'
   | 'ready'
   | 'no_schedule'
@@ -38,8 +44,10 @@ export type DerivedStatus =
 export type StatusInput = {
   active: boolean
   pinSet: boolean
-  /** Earliest clock-in today, minutes since GST midnight. null = not clocked in. */
+  /** OPEN session's clock-in, minutes since GST midnight. null = not currently in. */
   clockInMin: number | null
+  /** True if they clocked in earlier today but have since clocked out (closed). */
+  clockedOutToday: boolean
   /** Today's roster start, minutes since GST midnight. null = NO roster row today. */
   rosterStartMin: number | null
   /** Current time, minutes since GST midnight. */
@@ -50,15 +58,18 @@ export function deriveStatus(i: StatusInput): DerivedStatus {
   if (!i.active) return 'deactivated'
   if (!i.pinSet) return 'awaiting_setup'
   if (i.clockInMin != null) {
-    // Present. Lateness is measured off the roster; with no roster row we can't
-    // judge lateness, so a clocked-in picker is simply 'clocked_in'.
+    // OPEN session (in right now). Lateness is measured off the roster; with no
+    // roster row we can't judge lateness, so an open picker is just 'clocked_in'.
     const late = i.rosterStartMin != null && i.clockInMin - i.rosterStartMin > LATE_GRACE_MIN
     return late ? 'late' : 'clocked_in'
   }
-  // Not clocked in. With NO roster row the picker is OFF today — never a no-show,
-  // never late. No fallback to store hours: surface "needs schedule" instead.
+  // Clocked in earlier and clocked out again => session done. They SHOWED UP, so
+  // this is never a no-show — it outranks the roster-based absence check below.
+  if (i.clockedOutToday) return 'clocked_out'
+  // Never clocked in. With NO roster row the picker is OFF today — never a
+  // no-show, never late. No store-hours fallback: surface "needs schedule".
   if (i.rosterStartMin == null) return 'no_schedule'
-  // Rostered but not in yet: a no-show only once the grace window has elapsed.
+  // Rostered but never in: a no-show only once the grace window has elapsed.
   return i.nowMin - i.rosterStartMin >= NOSHOW_AFTER_MIN ? 'absent' : 'ready'
 }
 
@@ -124,6 +135,7 @@ export const STATUS_META: Record<
 > = {
   clocked_in: { label: 'Clocked in', short: '✓ in', tone: 'green' },
   late: { label: 'Late', short: '⏱ late', tone: 'amber' },
+  clocked_out: { label: 'Clocked out', short: '✓ out', tone: 'grey' },
   absent: { label: 'No-Show', short: '✗ absent', tone: 'red' },
   ready: { label: 'Ready', short: 'ready', tone: 'grey' },
   no_schedule: { label: 'No schedule', short: '◷ no schedule', tone: 'grey' },

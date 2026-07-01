@@ -5,6 +5,7 @@
 import { createServerSupabaseClient } from './supabase'
 import { deriveLocationStatus, isRunningLate, type LocationStatus } from './status'
 import { gstDay, gstMinutesOf, buildRosterMap } from './roster'
+import { sessionsByEmployee, type SessionEvent } from './sessions'
 
 // Canonical location status (shared with the dashboard grid + map pins).
 export type LocStatus = LocationStatus
@@ -47,11 +48,12 @@ export async function getLocationsList(tenantId: string): Promise<LocationRow[]>
       .eq('tenant_id', tenantId)
       .eq('active', true)
       .eq('role', 'picker'),
+    // BOTH punch types — "in" = OPEN session (clock_in, no later clock_out).
     supabase
       .from('clock_events')
-      .select('employee_id')
+      .select('employee_id, event_type, timestamp')
       .eq('tenant_id', tenantId)
-      .eq('event_type', 'clock_in')
+      .in('event_type', ['clock_in', 'clock_out'])
       .eq('voided', false)
       .gte('timestamp', gst.startUTC)
       .lt('timestamp', gst.endUTC),
@@ -76,7 +78,9 @@ export async function getLocationsList(tenantId: string): Promise<LocationRow[]>
 
   const locations = (locRes.data ?? []) as any[]
   const employees = (empRes.data ?? []) as any[]
-  const inSet = new Set(((evtRes.data ?? []) as any[]).map((e) => e.employee_id))
+  // "in" = currently clocked in (open session), NOT merely a clock_in today.
+  const sessions = sessionsByEmployee((evtRes.data ?? []) as SessionEvent[])
+  const inSet = new Set([...sessions].filter(([, s]) => s.open).map(([id]) => id))
   const rosterByEmp = buildRosterMap((schedRes.data ?? []) as any[])
   const noshowEmpIds = new Set(((alertRes.data ?? []) as any[]).map((a) => a.employee_id).filter(Boolean))
   const nowMin = gstMinutesOf(new Date())

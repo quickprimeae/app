@@ -17,6 +17,7 @@ import { STATUS_META, type DerivedStatus } from '@/lib/status'
 const CHIP_CLASS: Record<DerivedStatus, string> = {
   clocked_in: 'in',
   late: 'late',
+  clocked_out: 'expected',
   absent: 'absent',
   ready: 'expected',
   no_schedule: 'awaiting',

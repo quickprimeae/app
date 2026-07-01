@@ -5,6 +5,7 @@
 import { createServerSupabaseClient } from './supabase'
 import { deriveStatus, type DerivedStatus } from './status'
 import { gstDay, gstMinutesOf, buildRosterMap } from './roster'
+import { sessionsByEmployee, type SessionEvent } from './sessions'
 
 export type EmployeeStatus = DerivedStatus
 export type EmployeeRow = {
@@ -28,7 +29,9 @@ export type EmployeeRow = {
   rosterHours: string | null   // TODAY'S rostered shift (scheduled_shifts), null if off today
   personalShift: boolean
   status: DerivedStatus
-  clockedInAt: string | null
+  clockedInAt: string | null       // today's clock-in time (shown even if since out)
+  clockedOutAt: string | null      // today's clock-out time, if the session closed
+  clockedInTodayEver: boolean      // clocked in at ANY point today (CUMULATIVE tile)
   hoursThisMonth: number
   earnedThisMonth: number
   hasPhoto: boolean
@@ -57,11 +60,13 @@ export async function getEmployeesList(tenantId: string): Promise<EmployeeRow[]>
       .from('locations')
       .select('id, name, shift_start, shift_end, client:clients(name)')
       .eq('tenant_id', tenantId),
+    // BOTH punch types — live status keys off the OPEN session (clock_in with no
+    // later clock_out), not merely a clock_in today. See src/lib/sessions.ts.
     supabase
       .from('clock_events')
-      .select('employee_id, timestamp, face_match_flagged')
+      .select('employee_id, event_type, timestamp, face_match_flagged')
       .eq('tenant_id', tenantId)
-      .eq('event_type', 'clock_in')
+      .in('event_type', ['clock_in', 'clock_out'])
       .eq('voided', false)
       .gte('timestamp', gst.startUTC)
       .lt('timestamp', gst.endUTC),
@@ -113,7 +118,7 @@ export async function getEmployeesList(tenantId: string): Promise<EmployeeRow[]>
   }
 
   const locById = new Map(((locRes.data ?? []) as any[]).map((l) => [l.id, l]))
-  const events = (evtRes.data ?? []) as any[]
+  const sessions = sessionsByEmployee((evtRes.data ?? []) as SessionEvent[])
   const hoursByEmp = new Map(((hoursRes.data ?? []) as any[]).map((h) => [h.employee_id, h]))
   // employee_id -> today's scheduled shift. SINGLE source for late / no-show.
   const rosterByEmp = buildRosterMap((schedRes.data ?? []) as any[])
@@ -122,17 +127,10 @@ export async function getEmployeesList(tenantId: string): Promise<EmployeeRow[]>
   // roster start/end minutes, so they compare directly.
   const nowMin = gstMinutesOf(new Date())
 
-  const clockByEmp = new Map<string, { timestamp: string; flagged: boolean }>()
-  for (const e of events) {
-    const existing = clockByEmp.get(e.employee_id)
-    if (!existing || e.timestamp < existing.timestamp) {
-      clockByEmp.set(e.employee_id, { timestamp: e.timestamp, flagged: !!e.face_match_flagged })
-    }
-  }
-
   return employees.map((e) => {
     const loc = e.location_id ? locById.get(e.location_id) : null
-    const ev = clockByEmp.get(e.id)
+    const s = sessions.get(e.id)
+    const open = !!s?.open // currently IN (clock_in, no later clock_out)
     const hours = hoursByEmp.get(e.id)
 
     // Contracted shift (employee's own times, else the location default). This is
@@ -147,7 +145,8 @@ export async function getEmployeesList(tenantId: string): Promise<EmployeeRow[]>
     const status = deriveStatus({
       active: !!e.active,
       pinSet: !!e.pin_set,
-      clockInMin: ev ? gstMinutesOf(new Date(ev.timestamp)) : null,
+      clockInMin: open && s?.clockInAt ? gstMinutesOf(new Date(s.clockInAt)) : null,
+      clockedOutToday: !!s?.clockedOut,
       rosterStartMin: roster?.startMin ?? null,
       nowMin,
     })
@@ -179,7 +178,9 @@ export async function getEmployeesList(tenantId: string): Promise<EmployeeRow[]>
       rosterHours: roster ? `${roster.start.slice(0, 5)}–${roster.end.slice(0, 5)}` : null,
       personalShift: !!(e.shift_start && e.shift_end),
       status,
-      clockedInAt: ev?.timestamp ?? null,
+      clockedInAt: s?.clockInAt ?? null,
+      clockedOutAt: s?.clockOutAt ?? null,
+      clockedInTodayEver: s?.clockInAt != null,
       hoursThisMonth,
       earnedThisMonth: earned,
       hasPhoto: !!e.has_photo,
