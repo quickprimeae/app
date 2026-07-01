@@ -6,7 +6,7 @@
 // navigation. Every mutation hits /api/schedule/shift (which audits) then the
 // view refreshes from the server.
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, Fragment } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
@@ -30,6 +30,10 @@ function dayHeader(d: string) {
 function rangeLabel(a: string, b: string) {
   const f = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' })
   return `${f(a)} – ${f(b)}`
+}
+// "HH:MM" from a stored time (or "—" when unset), for the group-header store timings.
+function hm(t: string | null | undefined) {
+  return t ? t.slice(0, 5) : '—'
 }
 
 type EditTarget = { employee: RosterEmployee; date: string; shift: RosterShift | null }
@@ -64,6 +68,25 @@ export default function RosterClient({
     () => (locFilter === 'all' ? employees : employees.filter((e) => e.locationId === locFilter)),
     [employees, locFilter]
   )
+
+  // When viewing All locations, group the pickers under their location (with the
+  // store timings in the header) instead of one flat list. Locations keep their
+  // given order; pickers with no location fall into a trailing bucket. Grouping
+  // is display-only — the same `rows` drive the coverage footer unchanged.
+  const groups = useMemo(() => {
+    const byLoc = new Map<string, RosterEmployee[]>()
+    const noLoc: RosterEmployee[] = []
+    for (const e of rows) {
+      if (!e.locationId) { noLoc.push(e); continue }
+      const arr = byLoc.get(e.locationId) ?? []
+      arr.push(e); byLoc.set(e.locationId, arr)
+    }
+    const out: { loc: RosterLocation | null; emps: RosterEmployee[] }[] = locations
+      .filter((l) => byLoc.has(l.id))
+      .map((l) => ({ loc: l, emps: byLoc.get(l.id)! }))
+    if (noLoc.length) out.push({ loc: null, emps: noLoc })
+    return out
+  }, [rows, locations])
 
   // Per-day count of active (scheduled) shifts among the visible rows.
   const coverage = useMemo(() => {
@@ -170,6 +193,32 @@ export default function RosterClient({
     }
   }
 
+  // One picker row (the 7-day grid). Shared by the flat list and the grouped
+  // (All locations) view so the cell behaviour stays identical.
+  const empRow = (emp: RosterEmployee) => (
+    <tr key={emp.id}>
+      <td className="rs-emp-col">
+        <div className="rs-emp-name">{emp.name}</div>
+        <div className="rs-emp-sub">{emp.locationId ? locName.get(emp.locationId) ?? '—' : <span style={{ color: T.amber }}>No location</span>}</div>
+      </td>
+      {dates.map((d) => {
+        const s = shiftByKey.get(`${emp.id}|${d}`)
+        return (
+          <td key={d} className={`rs-cell-td ${d === gstToday ? 'today' : ''}`}>
+            <button
+              className={`rs-cell ${cellClass(s)}`}
+              disabled={!emp.locationId}
+              onClick={() => openCell(emp, d)}
+              title={cellTitle(s, empName)}
+            >
+              {cellBody(s, empName)}
+            </button>
+          </td>
+        )
+      })}
+    </tr>
+  )
+
   return (
     <>
       <style>{css}</style>
@@ -221,29 +270,22 @@ export default function RosterClient({
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((emp) => (
-                    <tr key={emp.id}>
-                      <td className="rs-emp-col">
-                        <div className="rs-emp-name">{emp.name}</div>
-                        <div className="rs-emp-sub">{emp.locationId ? locName.get(emp.locationId) ?? '—' : <span style={{ color: T.amber }}>No location</span>}</div>
-                      </td>
-                      {dates.map((d) => {
-                        const s = shiftByKey.get(`${emp.id}|${d}`)
-                        return (
-                          <td key={d} className={`rs-cell-td ${d === gstToday ? 'today' : ''}`}>
-                            <button
-                              className={`rs-cell ${cellClass(s)}`}
-                              disabled={!emp.locationId}
-                              onClick={() => openCell(emp, d)}
-                              title={cellTitle(s, empName)}
-                            >
-                              {cellBody(s, empName)}
-                            </button>
-                          </td>
-                        )
-                      })}
-                    </tr>
-                  ))}
+                  {locFilter === 'all'
+                    ? groups.map((g) => (
+                        <Fragment key={g.loc?.id ?? 'no-location'}>
+                          <tr className="rs-group-row">
+                            <td className="rs-group-cell" colSpan={1 + dates.length}>
+                              <span className="rs-group-name">{g.loc?.name ?? 'No location'}</span>
+                              {g.loc
+                                ? <span className="rs-group-timings">{hm(g.loc.shiftStart)}–{hm(g.loc.shiftEnd)}</span>
+                                : <span className="rs-group-timings" style={{ color: T.amber }}>assign a location to schedule</span>}
+                              <span className="rs-group-count">{g.emps.length} picker{g.emps.length === 1 ? '' : 's'}</span>
+                            </td>
+                          </tr>
+                          {g.emps.map((emp) => empRow(emp))}
+                        </Fragment>
+                      ))
+                    : rows.map((emp) => empRow(emp))}
                 </tbody>
                 <tfoot>
                   <tr>
@@ -418,6 +460,11 @@ const css = `
 .rs-grid thead .rs-emp-col{z-index:3;background:${T.bgSubtle}}
 .rs-emp-name{font-size:13px;font-weight:500;color:${T.white}}
 .rs-emp-sub{font-size:10px;color:${T.dim};margin-top:1px}
+.rs-group-row td{background:${T.bgSubtle};border-top:1px solid ${T.borderMid};border-bottom:1px solid ${T.border}}
+.rs-group-cell{padding:9px 12px;text-align:left;white-space:nowrap}
+.rs-group-name{font-size:12px;font-weight:700;color:${T.white};letter-spacing:.02em}
+.rs-group-timings{font-family:'DM Mono',monospace;font-size:11px;color:${T.dim};margin-left:10px}
+.rs-group-count{font-size:11px;color:${T.dim};margin-left:10px}
 .rs-cell-td{padding:5px;border-bottom:1px solid ${T.border};text-align:center}
 .rs-cell-td.today{background:rgba(13,31,24,.4)}
 .rs-cell{width:100%;min-height:38px;border-radius:8px;border:1px solid transparent;background:none;cursor:pointer;font-family:'DM Mono',monospace;font-size:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:6px 4px;transition:background .1s,border-color .1s}

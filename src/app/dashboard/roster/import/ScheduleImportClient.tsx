@@ -135,42 +135,45 @@ export default function ScheduleImportClient() {
     <>
       <style>{css}</style>
       <div className="si-root">
-        <header className="si-topbar">
-          <div className="si-title">Import schedule</div>
-          <div className="si-week">
-            <span className="si-week-label">Week of</span>
+       <div className="si-layout">
+        <aside className="si-sidebar">
+          <Link href="/dashboard/roster" className="si-back">← Back to roster</Link>
+          <div className="si-sidebar-title">Import<br />week</div>
+          <div className="si-sidebar-sub">Upload one week&apos;s schedule grid as a CSV.</div>
+          <div className="si-side-block">
+            <div className="si-side-label">Target week</div>
             <input
               type="date"
               className="si-week-input"
               value={weekStart}
               onChange={(e) => { if (e.target.value) setWeekStart(mondayOfISO(e.target.value)) }}
             />
-            <span className="si-week-range">{weekLabel}</span>
+            <div className="si-week-range">{weekLabel}</div>
           </div>
-          <div className="si-right">
-            <button className="si-btn ghost" onClick={downloadTemplate}>⬇ Template (Mon–Sun)</button>
-            <Link href="/dashboard/roster" className="si-btn ghost">Roster →</Link>
+          <div className="si-col-list">
+            <div className="si-col-title">CSV columns</div>
+            <div className="si-col-item"><span className="si-col-key">employee</span><span className="si-col-req">req</span><span className="si-col-desc">phone or employee number</span></div>
+            {WD_LABELS.map((w) => (
+              <div key={w} className="si-col-item"><span className="si-col-key">{w}</span><span className="si-col-desc">08:00-19:00 · OFF · blank</span></div>
+            ))}
           </div>
-        </header>
+          <button className="si-dl-side" onClick={downloadTemplate}>⬇ Download template</button>
+          <div className="si-sidebar-footer">Re-importing a week updates existing shifts; shifts you cancelled in the roster are left untouched.</div>
+        </aside>
 
         <main className="si-main">
           {parseError && <div className="si-banner">{parseError}</div>}
 
           {view === VIEW.UPLOAD && (
             <>
-              <div className="si-intro">
-                <div className="si-intro-title">Upload a weekly schedule grid</div>
-                <div className="si-intro-sub">
-                  Add one CSV row per picker. The first column identifies the employee (a phone number like{' '}
-                  <code>+9715XXXXXXXX</code> or their employee&nbsp;number), followed by 7 columns headed <code>Mon</code>,{' '}
-                  <code>Tue</code> … <code>Sun</code>. Choose the target week above — each weekday maps to that week&apos;s date.
-                  Each cell holds a time range like <code>08:00-19:00</code>, or leave it blank / <code>OFF</code> for a day off.
-                  Re-importing a corrected week updates the existing shifts instead of duplicating them, and any shifts you
-                  cancelled in the roster are left untouched.
-                </div>
+              <div className="si-page-header">
+                <div className="si-page-tag">Import week</div>
+                <h1 className="si-page-h">Upload a <em>weekly schedule</em></h1>
+                <p className="si-page-sub">One CSV row per picker: the employee column plus 7 day columns (Mon–Sun). Importing into <strong>{weekLabel}</strong> — set the target week in the sidebar.</p>
               </div>
+              <div className="si-info teal"><span className="si-info-icon">💡</span><div><strong>Tip:</strong> the first column is the employee (a phone like <code>+9715XXXXXXXX</code> or their employee number); each day cell is a range like <code>08:00-19:00</code>, or <code>OFF</code> / blank for a day off. Re-importing updates existing shifts and never touches ones you cancelled.</div></div>
               <div
-                className={`si-drop ${drag ? 'drag' : ''}`}
+                className={`si-drop-zone ${drag ? 'drag' : ''}`}
                 onClick={() => fileRef.current?.click()}
                 onDragOver={(e) => { e.preventDefault(); setDrag(true) }}
                 onDragLeave={() => setDrag(false)}
@@ -178,7 +181,7 @@ export default function ScheduleImportClient() {
               >
                 <div className="si-drop-icon">📅</div>
                 <div className="si-drop-title">Drop your schedule CSV here</div>
-                <div className="si-drop-sub">or click to browse · importing into <strong>{weekLabel}</strong></div>
+                <div className="si-drop-sub">or <strong>click to browse</strong> · into {weekLabel}</div>
                 <input ref={fileRef} type="file" accept=".csv,text/csv" style={{ display: 'none' }} onChange={(e) => handleFile(e.target.files?.[0])} />
               </div>
             </>
@@ -186,7 +189,7 @@ export default function ScheduleImportClient() {
 
           {view === VIEW.REVIEW && (
             <>
-              <div className="si-weekbanner">Importing week <strong>{weekLabel}</strong> — adjust the week picker above if this is wrong before importing.</div>
+              <div className="si-weekbanner">Importing week <strong>{weekLabel}</strong> — set the target week in the sidebar if this is wrong before importing.</div>
               <div className="si-stats">
                 <div className="si-stat"><div className="si-stat-val">{rows.length}</div><div className="si-stat-label">Pickers</div></div>
                 <div className="si-stat"><div className="si-stat-val" style={{ color: T.teal }}>{totalShifts}</div><div className="si-stat-label">Shifts</div></div>
@@ -271,6 +274,7 @@ export default function ScheduleImportClient() {
             </div>
           )}
         </main>
+       </div>
       </div>
     </>
   )
@@ -279,30 +283,49 @@ export default function ScheduleImportClient() {
 const css = `
 *,*::before,*::after{box-sizing:border-box}
 .si-root{font-family:var(--font-jakarta),sans-serif;background:${T.surface};min-height:100vh;color:${T.ink}}
-.si-topbar{background:${T.white};border-bottom:1px solid ${T.border};display:flex;align-items:center;padding:0 28px;height:56px;gap:18px;position:sticky;top:0;z-index:100;flex-wrap:wrap}
-.si-title{font-family:var(--font-jakarta),sans-serif;font-size:15px;font-weight:600;color:${T.ink}}
-.si-week{display:flex;align-items:center;gap:8px}
-.si-week-label{font-size:12px;color:${T.inkLight};font-weight:600}
-.si-week-input{border:1px solid ${T.border};border-radius:8px;padding:7px 10px;font-family:var(--font-jakarta),sans-serif;font-size:13px;color:${T.ink};outline:none}
+.si-layout{display:grid;grid-template-columns:260px 1fr;min-height:100vh}
+.si-sidebar{background:${T.tealDark};padding:32px 28px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
+.si-back{font-family:'DM Mono',monospace;font-size:12px;color:${T.onTealPanel};letter-spacing:.04em;margin-bottom:28px;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.si-back:hover{color:#fff}
+.si-sidebar-title{font-family:var(--font-jakarta),serif;font-size:22px;font-weight:300;color:#fff;line-height:1.3;margin-bottom:8px}
+.si-sidebar-sub{font-size:12px;color:${T.tealText};line-height:1.6;margin-bottom:26px}
+.si-side-block{margin-bottom:26px}
+.si-side-label{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:8px}
+.si-week-input{width:100%;border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:8px 10px;font-family:var(--font-jakarta),sans-serif;font-size:13px;color:#fff;background:rgba(255,255,255,.08);outline:none}
 .si-week-input:focus{border-color:${T.tealMid}}
-.si-week-range{font-size:12px;font-weight:600;color:${T.teal};background:${T.tealLight};border:1px solid ${T.tealBorder};border-radius:7px;padding:5px 10px}
-.si-right{margin-left:auto;display:flex;align-items:center;gap:10px}
-.si-main{padding:28px 32px;max-width:1100px}
+.si-week-range{font-size:12px;font-weight:600;color:${T.tealText};margin-top:8px}
+.si-col-list{flex:1;overflow-y:auto;margin-bottom:20px}
+.si-col-title{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:10px}
+.si-col-item{display:flex;align-items:baseline;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+.si-col-key{font-family:'DM Mono',monospace;font-size:11px;color:${T.tealText};flex-shrink:0}
+.si-col-req{font-size:10px;color:#e87777;flex-shrink:0}
+.si-col-desc{font-size:10px;color:rgba(255,255,255,.3);line-height:1.4}
+.si-dl-side{padding:10px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-family:var(--font-jakarta),sans-serif;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:16px}
+.si-dl-side:hover{background:rgba(255,255,255,.14)}
+.si-sidebar-footer{padding-top:16px;border-top:1px solid rgba(255,255,255,.08);font-size:11px;color:rgba(255,255,255,.28);line-height:1.5}
+.si-main{padding:44px 48px;overflow-y:auto}
+.si-page-header{margin-bottom:28px}
+.si-page-tag{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:${T.tealMid};margin-bottom:8px}
+.si-page-h{font-family:var(--font-jakarta),serif;font-size:32px;font-weight:300;color:${T.ink};line-height:1.15;margin-bottom:8px}
+.si-page-h em{font-style:italic;color:${T.tealMid}}
+.si-page-sub{font-size:14px;color:${T.inkLight};line-height:1.6;max-width:640px}
+.si-info{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border-radius:10px;margin-bottom:20px;font-size:13px;line-height:1.6}
+.si-info.teal{background:${T.tealLight};border:1px solid ${T.tealBorder};color:${T.teal}}
+.si-info strong{font-weight:600}
+.si-info code{font-family:'DM Mono',monospace;font-size:12px;background:${T.white};color:${T.teal};padding:1px 5px;border-radius:4px;border:1px solid ${T.tealBorder}}
+.si-info-icon{font-size:17px;flex-shrink:0;margin-top:1px}
 .si-btn{padding:9px 16px;border-radius:8px;border:none;font-family:var(--font-jakarta),sans-serif;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
 .si-btn.primary{background:${T.tealMid};color:#1B2B2B}.si-btn.primary:hover{background:${T.teal}}
 .si-btn.secondary{background:${T.white};color:${T.inkMid};border:1px solid ${T.border}}.si-btn.secondary:hover{border-color:${T.tealBorder};color:${T.teal}}
 .si-btn.ghost{background:${T.white};color:${T.inkMid};border:1px solid ${T.border}}.si-btn.ghost:hover{border-color:${T.tealBorder};color:${T.teal}}
 .si-banner{padding:12px 16px;border-radius:10px;font-size:13px;margin-bottom:16px;background:${T.redBg};border:1px solid ${T.redBorder};color:${T.red}}
 .si-weekbanner{padding:11px 16px;border-radius:10px;font-size:13px;margin-bottom:16px;background:${T.tealLight};border:1px solid ${T.tealBorder};color:${T.teal}}
-.si-intro{margin-bottom:18px}
-.si-intro-title{font-family:var(--font-jakarta),sans-serif;font-size:20px;font-weight:600;margin-bottom:6px}
-.si-intro-sub{font-size:13px;color:${T.inkLight};line-height:1.7;max-width:740px}
-.si-intro-sub code{font-family:'DM Mono',monospace;font-size:12px;background:${T.tealLight};color:${T.teal};padding:1px 5px;border-radius:4px}
-.si-drop{background:${T.white};border:2px dashed ${T.tealBorder};border-radius:16px;padding:56px 20px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s}
-.si-drop:hover,.si-drop.drag{border-color:${T.tealMid};background:${T.tealLight}}
-.si-drop-icon{font-size:44px;margin-bottom:10px}
-.si-drop-title{font-size:16px;font-weight:600;margin-bottom:4px}
+.si-drop-zone{border:2px dashed ${T.tealBorder};border-radius:16px;background:${T.white};padding:52px 40px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;gap:10px}
+.si-drop-zone:hover,.si-drop-zone.drag{border-color:${T.tealMid};background:${T.tealLight}}
+.si-drop-icon{font-size:44px}
+.si-drop-title{font-size:18px;font-weight:600;color:${T.ink}}
 .si-drop-sub{font-size:13px;color:${T.inkLight}}
+.si-drop-sub strong{color:${T.teal}}
 .si-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px}
 .si-stat{background:${T.white};border:1px solid ${T.border};border-radius:10px;padding:14px 18px}
 .si-stat-val{font-family:var(--font-jakarta),sans-serif;font-size:26px;font-weight:700;line-height:1;margin-bottom:4px}

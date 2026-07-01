@@ -28,7 +28,9 @@ const NAV: { label: string; items: NavItem[] }[] = [
     label: 'Schedule',
     items: [
       { icon: '📅', label: 'Roster', href: '/dashboard/roster' },
-      { icon: '📥', label: 'Import schedule', href: '/dashboard/roster/import' },
+      // Import is now reached from within Roster (the "Import week" button), so it
+      // is no longer a standalone nav item. Route /dashboard/roster/import still
+      // works and highlights Roster (most-specific active-match falls through).
       // Moved out of Payroll for the demo — it's a schedule/verification tool.
       { icon: '🕐', label: 'Hours & verification', href: '/dashboard/payroll/hours' },
     ],
