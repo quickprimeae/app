@@ -1,7 +1,7 @@
 'use client'
 // src/app/dashboard/roster/import/ScheduleImportClient.tsx
-// Weekly-grid schedule importer. CSV format: first column = employee identifier
-// (phone or employee_number), then 7 columns headed Mon, Tue … Sun. A week
+// Weekly-grid schedule importer. CSV format: first column = the Picker ID
+// (employee_number, e.g. OP-0001), then 7 columns headed Mon, Tue … Sun. A week
 // picker (default: next week) resolves those weekday columns to concrete dates
 // (Mon-first). Each cell is a time range ("08:00-19:00"), blank, or "OFF".
 // Parsed + previewed client-side (same parseCell as the server), then POSTed to
@@ -43,12 +43,12 @@ function dmLabel(d: string) {
 }
 
 function downloadTemplate() {
-  const header = ['employee', ...WD_LABELS].join(',')
-  // Placeholder identifiers won't match a real employee, so an accidental import
+  const header = ['picker_id', ...WD_LABELS].join(',')
+  // Placeholder Picker IDs won't match a real employee, so an accidental import
   // just reports them as unmatched — delete these example rows before use.
   const examples = [
-    ['+9715XXXXXXXX', '08:00-19:00', '08:00-19:00', 'OFF', '08:00-17:00', '', 'OFF', '09:00-18:00'],
-    ['OP-0001', '09:00-18:00', 'OFF', '09:00-18:00', '09:00-18:00', '09:00-18:00', 'OFF', 'OFF'],
+    ['OP-0001', '08:00-19:00', '08:00-19:00', 'OFF', '08:00-17:00', '', 'OFF', '09:00-18:00'],
+    ['OP-0002', '09:00-18:00', 'OFF', '09:00-18:00', '09:00-18:00', '09:00-18:00', 'OFF', 'OFF'],
   ]
   const body = examples.map((r) => r.join(',')).join('\n')
   const url = URL.createObjectURL(new Blob([`${header}\n${body}`], { type: 'text/csv' }))
@@ -152,7 +152,7 @@ export default function ScheduleImportClient() {
           </div>
           <div className="si-col-list">
             <div className="si-col-title">CSV columns</div>
-            <div className="si-col-item"><span className="si-col-key">employee</span><span className="si-col-req">req</span><span className="si-col-desc">phone or employee number</span></div>
+            <div className="si-col-item"><span className="si-col-key">picker_id</span><span className="si-col-req">req</span><span className="si-col-desc">Picker ID, e.g. OP-0001</span></div>
             {WD_LABELS.map((w) => (
               <div key={w} className="si-col-item"><span className="si-col-key">{w}</span><span className="si-col-desc">08:00-19:00 · OFF · blank</span></div>
             ))}
@@ -171,7 +171,7 @@ export default function ScheduleImportClient() {
                 <h1 className="si-page-h">Upload a <em>weekly schedule</em></h1>
                 <p className="si-page-sub">One CSV row per picker: the employee column plus 7 day columns (Mon–Sun). Importing into <strong>{weekLabel}</strong> — set the target week in the sidebar.</p>
               </div>
-              <div className="si-info teal"><span className="si-info-icon">💡</span><div><strong>Tip:</strong> the first column is the employee (a phone like <code>+9715XXXXXXXX</code> or their employee number); each day cell is a range like <code>08:00-19:00</code>, or <code>OFF</code> / blank for a day off. Re-importing updates existing shifts and never touches ones you cancelled.</div></div>
+              <div className="si-info teal"><span className="si-info-icon">💡</span><div><strong>Tip:</strong> the first column is the <strong>Picker ID</strong> (e.g. <code>OP-0001</code>) — it must match an active picker in Employees; each day cell is a range like <code>08:00-19:00</code>, or <code>OFF</code> / blank for a day off. Re-importing updates existing shifts and never touches ones you cancelled.</div></div>
               <div
                 className={`si-drop-zone ${drag ? 'drag' : ''}`}
                 onClick={() => fileRef.current?.click()}

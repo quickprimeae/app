@@ -1,6 +1,7 @@
 // src/app/api/schedule/import/route.ts
 // Ops-only. POST { rows: [{ identifier, cells: { [date]: cellText } }], dates }
-// Imports a weekly schedule grid into scheduled_shifts.
+// Imports a weekly schedule grid into scheduled_shifts. `identifier` is the
+// picker's Picker ID (employee_number, e.g. OP-0001) — the SOLE match key.
 //
 // Per cell (one picker on one date):
 //   • a time range  → upsert a 'scheduled' shift (origin 'csv') for that date
@@ -12,7 +13,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase'
 import { getOpsContext } from '@/lib/ops'
-import { normalizePhone } from '@/lib/phone'
 import { parseCell, isDateHeader } from '@/lib/schedule'
 
 type InRow = { identifier?: string; cells?: Record<string, string> }
@@ -49,16 +49,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Max 1000 rows per import' }, { status: 400 })
     }
 
-    // Resolve all employees for this tenant once; match by E.164 phone or by
-    // employee_number (case-insensitive).
+    // Resolve all employees for this tenant once; match SOLELY by Picker ID
+    // (employee_number, e.g. OP-0001), case-insensitive. Phone matching was
+    // removed — the Picker ID is now the one key.
     const { data: emps } = await supabase
       .from('employees')
-      .select('id, employee_number, phone, location_id, active, first_name, last_name')
+      .select('id, employee_number, location_id, active, first_name, last_name')
       .eq('tenant_id', tenantId)
-    const byPhone = new Map<string, any>()
     const byNumber = new Map<string, any>()
     for (const e of (emps ?? []) as any[]) {
-      if (e.phone) byPhone.set(e.phone, e)
       if (e.employee_number) byNumber.set(String(e.employee_number).toUpperCase(), e)
     }
 
@@ -69,10 +68,9 @@ export async function POST(req: NextRequest) {
     const matched: Matched[] = rows.map((r, i) => {
       const identifier = clean(r.identifier)
       const rowNum = i + 2 // +1 header, +1 to 1-base
-      if (!identifier) return { row: rowNum, identifier, emp: null, reason: 'Missing employee identifier' }
-      const phone = normalizePhone(identifier)
-      const emp = phone ? byPhone.get(phone) : byNumber.get(identifier.toUpperCase())
-      if (!emp) return { row: rowNum, identifier, emp: null, reason: 'No employee matches this phone / employee number' }
+      if (!identifier) return { row: rowNum, identifier, emp: null, reason: 'Missing Picker ID' }
+      const emp = byNumber.get(identifier.toUpperCase())
+      if (!emp) return { row: rowNum, identifier, emp: null, reason: `No active picker has Picker ID "${identifier}"` }
       if (!emp.active) return { row: rowNum, identifier, emp: null, reason: `${emp.first_name} ${emp.last_name} is deactivated` }
       if (!emp.location_id) return { row: rowNum, identifier, emp: null, reason: `${emp.first_name} ${emp.last_name} has no assigned location` }
       if (seen.has(emp.id)) return { row: rowNum, identifier, emp: null, reason: 'Duplicate employee — already listed earlier in this file' }
