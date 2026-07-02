@@ -167,10 +167,11 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
 
   const dashLocations: DashLocation[] = locations.map((loc: any) => {
     const locEmps = employees.filter((e: any) => e.location_id === loc.id)
-    const total = locEmps.length
     // Signals for the canonical deriveLocationStatus (single source, shared with
     // the Locations page + map pins):
     let clockedIn = 0        // OPEN sessions (drives "X/Y" display AND active)
+    let working = 0          // Y denominator: pickers expected in today (rostered
+                             // OR currently clocked-in), NOT total assigned headcount
     let scheduled = 0        // pickers with a roster row today (hasRoster)
     let latePicker = false   // >=1 rostered, set-up, not-in picker in the 10–60 band
     let noshowAlert = false  // >=1 unresolved no-show alert today for a picker here
@@ -183,6 +184,9 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
       const roster = rosterByEmployee.get(e.id)
       if (open) clockedIn++
       if (roster) scheduled++
+      // Y = expected in today: a rostered picker (late/no-show stays counted) OR
+      // anyone currently clocked in with no roster, so numerator never exceeds Y.
+      if (roster || open) working++
       // No-show is driven by the ALERT the engine fired (the SAME rows as the KPI
       // card / feed), never an app-side headcount — so badge = chip = feed. Late
       // stays app-derived from the roster band, and only a rostered, SET-UP picker
@@ -226,7 +230,7 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
       area: loc.area ?? null,
       supervisor,
       status,
-      total,
+      total: working,
       clockedIn,
       shiftStart: loc.shift_start ?? null,
       shiftEnd: loc.shift_end ?? null,

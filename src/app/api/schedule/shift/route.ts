@@ -158,6 +158,31 @@ export async function DELETE(req: NextRequest) {
       .single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
+    // Retract any no-show alert already raised for this picker on the cancelled
+    // shift's GST day. detect_noshows() can't fire for a cancelled shift, but an
+    // alert raised BEFORE the cancel (while status='scheduled') would otherwise
+    // hang unresolved forever. GST day = the shift's `date`; that day spans UTC
+    // [date 00:00+04:00, next 00:00+04:00). Only noshow, only this picker+day,
+    // only still-open — other alert types are untouched.
+    const gstStart = `${before.date}T00:00:00+04:00`
+    const nextDay = new Date(`${before.date}T00:00:00Z`)
+    nextDay.setUTCDate(nextDay.getUTCDate() + 1)
+    const gstEnd = `${nextDay.toISOString().slice(0, 10)}T00:00:00+04:00`
+    await supabase
+      .from('alerts')
+      .update({
+        resolved: true,
+        resolved_at: new Date().toISOString(),
+        resolved_by: ctx.opsUser.id,
+        resolution_note: 'Auto-resolved: shift cancelled',
+      })
+      .eq('tenant_id', tenantId)
+      .eq('employee_id', before.employee_id)
+      .eq('type', 'noshow')
+      .eq('resolved', false)
+      .gte('created_at', gstStart)
+      .lt('created_at', gstEnd)
+
     await audit(supabase, tenantId, ctx.opsUser.id, 'cancel', id, before, after)
     return NextResponse.json({ success: true, shift: after })
   } catch (err) {
