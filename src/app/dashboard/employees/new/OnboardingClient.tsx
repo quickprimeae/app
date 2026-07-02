@@ -150,6 +150,7 @@ export default function OnboardingClient({ tenantId, locations, supervisors }: {
           </aside>
 
           <main className="ob-main">
+            <Link href="/dashboard/employees" className="ob-back">← Back to Employees</Link>
             {step < 4 ? (
               <>
                 <div className="ob-progress"><div className="ob-progress-fill" style={{ width: `${progress}%` }} /></div>
@@ -357,6 +358,7 @@ const css = `
 .ob-btn.secondary{background:${T.white};color:${T.inkMid};border:1.5px solid ${T.border}}.ob-btn.secondary:hover{border-color:${T.tealBorder};color:${T.teal}}
 .ob-btn:disabled{opacity:.4;cursor:not-allowed}
 .ob-btn.ghost{background:none;color:${T.inkLight}}.ob-btn.ghost:hover{color:${T.red}}
+.ob-back{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:${T.inkLight};text-decoration:none;margin-bottom:20px}.ob-back:hover{color:${T.teal}}
 .ob-progress{height:3px;background:${T.border};border-radius:2px;margin-bottom:40px;overflow:hidden}
 .ob-progress-fill{height:100%;background:${T.tealMid};border-radius:2px;transition:width .4s cubic-bezier(.4,0,.2,1)}
 `

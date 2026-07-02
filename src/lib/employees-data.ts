@@ -39,6 +39,7 @@ export type EmployeeRow = {
   hasDescriptor: boolean
   flagged: boolean
   flagAlertId: string | null
+  missedClockout: boolean          // has an unresolved 'clockout' alert today (auto clock-out)
   active: boolean
   pinSet: boolean
 }
@@ -50,7 +51,7 @@ export async function getEmployeesList(tenantId: string): Promise<EmployeeRow[]>
   const month = new Date().getMonth() + 1
   const year = new Date().getFullYear()
 
-  const [empRes, locRes, evtRes, hoursRes, flagRes, schedRes] = await Promise.all([
+  const [empRes, locRes, evtRes, hoursRes, flagRes, clockoutRes, schedRes] = await Promise.all([
     supabase
       .from('employees')
       .select('id, employee_number, first_name, last_name, phone, nationality, location_id, branch, hourly_rate, shift_days, shift_start, shift_end, has_photo, reference_photo_url, face_descriptor, active, pin_set, start_date, supervisor:ops_users(name)')
@@ -84,6 +85,17 @@ export async function getEmployeesList(tenantId: string): Promise<EmployeeRow[]>
       .eq('resolved', false)
       .is('review_result', null)
       .order('created_at', { ascending: false }),
+    // "Missed clock-out" = the SAME definition the Alerts page uses: an unresolved
+    // 'clockout' alert (auto-clockout fired). Scoped to today's GST day to match
+    // the "Today's status" bar. Reuses the alert, not a new derivation.
+    supabase
+      .from('alerts')
+      .select('employee_id')
+      .eq('tenant_id', tenantId)
+      .eq('type', 'clockout')
+      .eq('resolved', false)
+      .gte('created_at', gst.startUTC)
+      .lt('created_at', gst.endUTC),
     // Today's roster — the SINGLE source for late / no-show (see src/lib/roster.ts).
     supabase
       .from('scheduled_shifts')
@@ -116,6 +128,10 @@ export async function getEmployeesList(tenantId: string): Promise<EmployeeRow[]>
       if (s.signedUrl && s.path) signedByPath.set(s.path, s.signedUrl)
     }
   }
+
+  const missedClockoutSet = new Set<string>(
+    ((clockoutRes.data ?? []) as any[]).map((a) => a.employee_id).filter(Boolean),
+  )
 
   const locById = new Map(((locRes.data ?? []) as any[]).map((l) => [l.id, l]))
   const sessions = sessionsByEmployee((evtRes.data ?? []) as SessionEvent[])
@@ -188,6 +204,7 @@ export async function getEmployeesList(tenantId: string): Promise<EmployeeRow[]>
       hasDescriptor: !!e.face_descriptor,
       flagged: flagByEmp.has(e.id),
       flagAlertId: flagByEmp.get(e.id) ?? null,
+      missedClockout: missedClockoutSet.has(e.id),
       active: !!e.active,
       pinSet: !!e.pin_set,
     }

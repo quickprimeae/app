@@ -174,22 +174,6 @@ export default function AlertsClient({ initial, focusFlag, startFaceflag }: { in
                 )
               })}
             </div>
-            <div className="al-s-group">
-              <div className="al-s-title">Today&apos;s summary</div>
-              <div style={{ padding: '0 4px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {[
-                  { label: 'Total fired', val: alerts.length, col: T.white },
-                  { label: 'Resolved', val: resolvedToday.length, col: T.green },
-                  { label: 'Open', val: unresolved.length, col: unresolved.length ? T.red : T.green },
-                  { label: 'Critical', val: critical.length, col: critical.length ? T.red : T.green },
-                ].map((s) => (
-                  <div key={s.label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '5px 0', borderBottom: `1px solid ${T.border}` }}>
-                    <span style={{ color: T.dim }}>{s.label}</span>
-                    <span style={{ color: s.col, fontFamily: 'DM Mono', fontWeight: 600 }}>{s.val}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
           </aside>
 
           <main className="al-main">

@@ -48,6 +48,7 @@ type StatusFilter =
   | 'awaiting_setup'
   | 'deactivated'
   | 'flagged'
+  | 'missed_clockout'
   | 'nophoto'
 
 export default function EmployeesClient({ initial, locations }: { initial: EmployeeRow[]; locations: { id: string; name: string }[] }) {
@@ -77,6 +78,7 @@ export default function EmployeesClient({ initial, locations }: { initial: Emplo
     let d = ALL
     if (statusFilter !== 'all') {
       if (statusFilter === 'flagged') d = d.filter((e) => e.flagged)
+      else if (statusFilter === 'missed_clockout') d = d.filter((e) => e.missedClockout)
       else if (statusFilter === 'nophoto') d = d.filter((e) => !e.hasPhoto)
       else d = d.filter((e) => e.status === statusFilter)
     }
@@ -125,6 +127,7 @@ export default function EmployeesClient({ initial, locations }: { initial: Emplo
     awaiting_setup: ALL.filter((e) => e.status === 'awaiting_setup').length,
     deactivated: ALL.filter((e) => e.status === 'deactivated').length,
     flagged: ALL.filter((e) => e.flagged).length,
+    missed_clockout: ALL.filter((e) => e.missedClockout).length,
     nophoto: ALL.filter((e) => !e.hasPhoto).length,
   } as Record<string, number>
 
@@ -311,6 +314,7 @@ export default function EmployeesClient({ initial, locations }: { initial: Emplo
                 { id: 'awaiting_setup', label: 'Awaiting setup', dot: T.dimMid },
                 { id: 'deactivated', label: 'Terminated', dot: T.dimMid },
                 { id: 'flagged', label: 'Face flagged', dot: T.amber },
+                { id: 'missed_clockout', label: 'Missed clock-out', dot: T.amber },
                 { id: 'nophoto', label: 'No photo', dot: T.dimMid },
               ] as const).map((f) => (
                 <button key={f.id} className={`ep-filter-item ${statusFilter === f.id ? 'active' : ''}`} onClick={() => setStatus(f.id)}>
