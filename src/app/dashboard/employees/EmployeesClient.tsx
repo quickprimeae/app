@@ -51,7 +51,7 @@ type StatusFilter =
   | 'missed_clockout'
   | 'nophoto'
 
-export default function EmployeesClient({ initial, locations }: { initial: EmployeeRow[]; locations: { id: string; name: string }[] }) {
+export default function EmployeesClient({ initial, locations, initialPicker }: { initial: EmployeeRow[]; locations: { id: string; name: string }[]; initialPicker?: string | null }) {
   const router = useRouter()
   const ALL = initial
   const [search, setSearch] = useState('')
@@ -73,6 +73,20 @@ export default function EmployeesClient({ initial, locations }: { initial: Emplo
     setInviteCopied(false)
     setPhotoMsg(null)
   }, [selected])
+
+  // Deep-link: ?picker=OP-xxxx opens that picker's detail drawer on load. Match by
+  // employee_number (case-insensitive); an unknown/stale value is ignored (normal
+  // list). Then strip the param via history so a refresh doesn't reopen it — no
+  // navigation, so the drawer state survives.
+  useEffect(() => {
+    if (initialPicker) {
+      const match = ALL.find((e) => e.empId.toLowerCase() === initialPicker.toLowerCase())
+      if (match) setSelected(match.id)
+    }
+    if (initialPicker) window.history.replaceState(null, '', '/dashboard/employees')
+    // Mount-only: initialPicker is the server-provided value for this load.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const filtered = useMemo(() => {
     let d = ALL
