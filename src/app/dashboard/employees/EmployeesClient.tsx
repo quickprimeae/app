@@ -35,6 +35,10 @@ function fmtDate(s: string | null) {
   if (!s) return '—'
   return new Date(s).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
+// "Mon 30 Jun" for a YYYY-MM-DD (UTC-parsed so the calendar date never drifts).
+function weekdayLabel(iso: string) {
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })
+}
 
 type SortKey = keyof EmployeeRow
 type StatusFilter =
@@ -54,6 +58,8 @@ type StatusFilter =
 export default function EmployeesClient({ initial, locations, initialPicker }: { initial: EmployeeRow[]; locations: { id: string; name: string }[]; initialPicker?: string | null }) {
   const router = useRouter()
   const ALL = initial
+  // Today's GST calendar day (UTC+4), to highlight it in the week schedule.
+  const gstToday = new Date(Date.now() + 4 * 3600 * 1000).toISOString().slice(0, 10)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [selected, setSelected] = useState<string | null>(null)
@@ -425,8 +431,11 @@ export default function EmployeesClient({ initial, locations, initialPicker }: {
                   <button className="ep-close" onClick={() => setSelected(null)}>✕</button>
                 </div>
                 <div className="ep-drawer-badges">
-                  <span className={`ep-badge ${selectedEmp.flagged ? 'flagged' : BADGE_CLASS[selectedEmp.status]}`}>
-                    {selectedEmp.flagged ? '⚠ face flagged' : STATUS_META[selectedEmp.status].label}
+                  {/* A late picker reads as "Clocked in" here — lateness is already
+                      conveyed by the clock-in time in Today's activity, so the
+                      separate "Late" badge is dropped to avoid duplication. */}
+                  <span className={`ep-badge ${selectedEmp.flagged ? 'flagged' : BADGE_CLASS[selectedEmp.status === 'late' ? 'clocked_in' : selectedEmp.status]}`}>
+                    {selectedEmp.flagged ? '⚠ face flagged' : STATUS_META[selectedEmp.status === 'late' ? 'clocked_in' : selectedEmp.status].label}
                   </span>
                   {!selectedEmp.hasPhoto && <span className="ep-badge nophoto">⚠ no reference photo</span>}
                 </div>
@@ -442,17 +451,26 @@ export default function EmployeesClient({ initial, locations, initialPicker }: {
                       { label: 'Location', val: selectedEmp.location },
                       { label: 'Branch', val: selectedEmp.branch ?? '—' },
                       { label: 'Supervisor', val: selectedEmp.supervisor ?? 'Unassigned' },
-                      // Today's ROSTERED shift wins (real times, no default tag);
-                      // fall back to the contracted default only when off-roster today.
-                      { label: 'Shift', val: selectedEmp.rosterHours
-                        ? `${selectedEmp.rosterHours} (rostered today)`
-                        : `${selectedEmp.shiftHours} · ${selectedEmp.shiftDays ?? '—'}${selectedEmp.personalShift ? ' (personal)' : ' (location default)'}` },
+                      // Per-day shift schedule moved to its own section below (shifts
+                      // vary day to day, so one "today" value was misleading).
                       // 'Hourly rate' cell hidden for demo (pay). Value still on selectedEmp.
                       { label: 'PIN', val: selectedEmp.pinSet ? '✓ set up' : '⚠ not set' },
                     ].map((c) => (
                       <div key={c.label} className="ep-detail-cell">
                         <div className="ep-detail-cell-label">{c.label}</div>
                         <div className={`ep-detail-cell-val${c.mono ? ' mono' : ''}`}>{c.val}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="ep-drawer-section">
+                  <div className="ep-drawer-section-title">This week&apos;s shifts</div>
+                  <div className="ep-week">
+                    {selectedEmp.weekShifts.map((d) => (
+                      <div key={d.date} className={`ep-week-row${d.date === gstToday ? ' today' : ''}`}>
+                        <span className="ep-week-day">{weekdayLabel(d.date)}</span>
+                        <span className={`ep-week-time${d.off ? ' off' : ''}`}>{d.off ? 'OFF' : `${d.start}–${d.end}`}</span>
                       </div>
                     ))}
                   </div>
@@ -521,6 +539,15 @@ export default function EmployeesClient({ initial, locations, initialPicker }: {
                   {photoMsg && (
                     <div className={`ep-face-msg ${photoMsg.kind}`}>{photoMsg.text}</div>
                   )}
+                </div>
+
+                {/* Reserved space for passport/ID capture — layout only, no data yet. */}
+                <div className="ep-drawer-section">
+                  <div className="ep-drawer-section-title">Passport &amp; ID</div>
+                  <div className="ep-idph">
+                    <div className="ep-idph-icon">🪪</div>
+                    <div className="ep-idph-text">Passport &amp; ID details — coming soon</div>
+                  </div>
                 </div>
 
                 {selectedEmp.status === 'awaiting_setup' && (
@@ -646,6 +673,15 @@ const css = `
 .ep-detail-cell-label{font-size:10px;color:${T.dim};font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:3px}
 .ep-detail-cell-val{font-size:13px;color:${T.white};font-weight:500}
 .ep-detail-cell-val.mono{font-family:'DM Mono',monospace;font-size:12px}
+.ep-week{display:flex;flex-direction:column;gap:4px}
+.ep-week-row{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:7px;background:${T.bgSubtle};border:1px solid ${T.border}}
+.ep-week-row.today{border-color:${T.tealMid};background:${T.tealFaint}}
+.ep-week-day{font-size:12px;color:${T.whiteMid};font-weight:500}
+.ep-week-time{font-family:'DM Mono',monospace;font-size:12px;color:${T.white}}
+.ep-week-time.off{font-family:var(--font-jakarta),sans-serif;font-size:10px;font-weight:600;letter-spacing:.08em;color:${T.dimMid}}
+.ep-idph{display:flex;align-items:center;gap:12px;padding:16px 14px;border-radius:10px;border:1px dashed ${T.borderMid};background:${T.bgSubtle};opacity:.75}
+.ep-idph-icon{font-size:22px}
+.ep-idph-text{font-size:12px;color:${T.dim};font-weight:500}
 .ep-activity-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:7px;background:${T.bgSubtle};border:1px solid ${T.border};margin-bottom:6px;font-size:12px}
 .ep-activity-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .ep-activity-label{color:${T.whiteMid};flex:1}
