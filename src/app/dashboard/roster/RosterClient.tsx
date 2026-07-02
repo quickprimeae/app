@@ -562,7 +562,7 @@ const css = `
 .rs-group-name{font-size:12px;font-weight:700;color:${T.white};letter-spacing:.02em}
 .rs-group-timings{font-family:'DM Mono',monospace;font-size:11px;color:${T.dim};margin-left:10px}
 .rs-group-count{font-size:11px;color:${T.dim};margin-left:10px}
-.rs-bulk{margin-top:14px;padding-top:14px;border-top:1px solid ${T.border}}
+.rs-bulk{margin-top:14px;padding:14px 20px 0;border-top:1px solid ${T.border}}
 .rs-bulk-label{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${T.dim};margin-bottom:8px}
 .rs-bulk-btns{display:flex;gap:8px;flex-wrap:wrap}
 .rs-day-chip{padding:8px 10px;border-radius:8px;border:1px solid ${T.border};background:${T.bgSubtle};color:${T.white};font-family:var(--font-jakarta),sans-serif;font-size:12px;font-weight:600;cursor:pointer}
