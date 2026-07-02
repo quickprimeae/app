@@ -9,6 +9,7 @@ import Link from 'next/link'
 import type { LocationRow } from '@/lib/locations-data'
 import { LOCATION_DEFAULTS } from '@/lib/locations-defaults'
 import LocationsMap from './LocationsMap'
+import PickerQuickInfo, { type QuickInfoPicker } from '../PickerQuickInfo'
 
 import { T } from '@/lib/theme'
 
@@ -42,6 +43,8 @@ export default function LocationsClient({ initial }: { initial: LocationRow[] })
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
   const [selected, setSelected] = useState<string | null>(null)
+  // Read-only quick-info card for a clicked picker (shared with the dashboard).
+  const [pickerInfo, setPickerInfo] = useState<QuickInfoPicker | null>(null)
   const [form, setForm] = useState<typeof EMPTY_FORM | null>(null)
   const [busy, setBusy] = useState(false)
   // Snapshot of the form as opened, to detect unsaved edits (data-loss guard).
@@ -248,10 +251,16 @@ export default function LocationsClient({ initial }: { initial: LocationRow[] })
                   </div>
                   <div className="lp-picker-chips">
                     {sel.pickers.map((p, i) => (
-                      <div key={i} className={`lp-chip ${p.status}`}>
+                      <button
+                        key={i}
+                        type="button"
+                        className={`lp-chip clickable ${p.status}`}
+                        title={`${p.name} — quick info`}
+                        onClick={() => setPickerInfo({ empId: p.empId, name: p.name, phone: p.phone })}
+                      >
                         <div className="lp-cdot" style={{ background: p.status === 'in' ? T.tealBright : p.status === 'absent' ? T.red : T.dimMid }} />
                         {p.name.split(' ')[0]}
-                      </div>
+                      </button>
                     ))}
                     {sel.pickers.length === 0 && <span style={{ fontSize: 12, color: T.dimMid }}>No pickers assigned</span>}
                   </div>
@@ -303,6 +312,8 @@ export default function LocationsClient({ initial }: { initial: LocationRow[] })
             </div>
           </div>
         )}
+
+        <PickerQuickInfo picker={pickerInfo} onClose={() => setPickerInfo(null)} />
       </div>
     </>
   )
@@ -381,6 +392,8 @@ const css = `
 .lp-detail-stat-val{font-family:'DM Mono',monospace;font-size:16px;font-weight:500;color:${T.white}}
 .lp-picker-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
 .lp-chip{display:flex;align-items:center;gap:5px;padding:4px 9px;border-radius:6px;font-size:11px;font-weight:500;border:1px solid transparent}
+.lp-chip.clickable{cursor:pointer;font-family:inherit;color:inherit;line-height:1.2}
+.lp-chip.clickable:hover{filter:brightness(1.08)}
 .lp-chip.in{background:#DCFCE7;color:${T.tealText};border-color:#9DEEE6}
 .lp-chip.absent{background:${T.redBg};color:${T.red};border-color:#FCA5A5}
 .lp-chip.expected{background:${T.bgSubtle};color:${T.dimMid};border-color:${T.border}}

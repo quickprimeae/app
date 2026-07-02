@@ -9,7 +9,7 @@ import { sessionsByEmployee, type SessionEvent } from './sessions'
 
 // Canonical location status (shared with the dashboard grid + map pins).
 export type LocStatus = LocationStatus
-export type LocPicker = { name: string; status: 'in' | 'absent' | 'expected' }
+export type LocPicker = { empId: string; name: string; phone: string | null; status: 'in' | 'absent' | 'expected' }
 export type LocationRow = {
   id: string
   name: string
@@ -44,7 +44,7 @@ export async function getLocationsList(tenantId: string): Promise<LocationRow[]>
       .order('name', { ascending: true }),
     supabase
       .from('employees')
-      .select('id, first_name, last_name, location_id, pin_set, supervisor:ops_users(name)')
+      .select('id, employee_number, first_name, last_name, phone, location_id, pin_set, supervisor:ops_users(name)')
       .eq('tenant_id', tenantId)
       .eq('active', true)
       .eq('role', 'picker'),
@@ -100,7 +100,9 @@ export async function getLocationsList(tenantId: string): Promise<LocationRow[]>
       hasRoster: locEmps.some((e) => rosterByEmp.has(e.id)),
     })
     const pickers: LocPicker[] = locEmps.map((e) => ({
+      empId: e.employee_number || e.id.slice(0, 8),
       name: `${e.first_name} ${e.last_name}`.trim(),
+      phone: e.phone ?? null,
       status: inSet.has(e.id) ? 'in' : status === 'noshow' ? 'absent' : 'expected',
     }))
     const supervisor = (locEmps.find((e) => e.supervisor?.name)?.supervisor?.name as string) ?? null

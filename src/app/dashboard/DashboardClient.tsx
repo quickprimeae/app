@@ -12,6 +12,7 @@ import { createBrowserSupabaseClient } from '@/lib/supabase'
 import type { DashboardData, DashLocation } from '@/lib/dashboard'
 import { STATUS_META, type DerivedStatus } from '@/lib/status'
 import { gstRelative, gstStamp } from '@/lib/time'
+import PickerQuickInfo, { type QuickInfoPicker } from './PickerQuickInfo'
 
 // Map a derived status to the picker-chip CSS variant (tone). awaiting_setup and
 // ready are both grey; flagged overrides everything.
@@ -60,6 +61,8 @@ export default function DashboardClient({
   const [filter, setFilter] = useState<'all' | 'active' | 'noshow' | 'late' | 'flagged'>('all')
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
+  // Read-only quick-info card for a clicked picker (shared with the Locations page).
+  const [pickerInfo, setPickerInfo] = useState<QuickInfoPicker | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const inFlight = useRef<AbortController | null>(null)
@@ -319,11 +322,17 @@ export default function DashboardClient({
                   {loc.pickers.map((p, j) => {
                     const cls = p.flagged ? 'flagged' : CHIP_CLASS[p.status]
                     return (
-                      <div key={j} className={`db-picker-chip ${cls}`} title={STATUS_META[p.status].label}>
+                      <button
+                        key={j}
+                        type="button"
+                        className={`db-picker-chip clickable ${cls}`}
+                        title={`${p.name} — quick info`}
+                        onClick={(e) => { e.stopPropagation(); setPickerInfo({ empId: p.id, name: p.name, phone: p.phone }) }}
+                      >
                         <div className={`db-chip-dot ${cls}`} />
                         {p.name}
                         {p.flagged && ' ⚠'}
-                      </div>
+                      </button>
                     )
                   })}
                   {loc.pickers.length === 0 && <span style={{ fontSize: 11, color: T.dimMid }}>No pickers assigned</span>}
@@ -383,7 +392,14 @@ export default function DashboardClient({
                     const badge = p.flagged ? 'flagged' : CHIP_CLASS[p.status]
                     const showTime = !p.flagged && (p.status === 'clocked_in' || p.status === 'late')
                     return (
-                      <div key={i} className="db-picker-row">
+                      <div
+                        key={i}
+                        className="db-picker-row clickable"
+                        role="button"
+                        tabIndex={0}
+                        title={`${p.name} — quick info`}
+                        onClick={() => setPickerInfo({ empId: p.id, name: p.name, phone: p.phone })}
+                      >
                         <div className="db-picker-avatar">{initials(p.name)}</div>
                         <div className="db-picker-info">
                           <div className="db-picker-name">
@@ -413,6 +429,8 @@ export default function DashboardClient({
             </div>
           </div>
         )}
+
+        <PickerQuickInfo picker={pickerInfo} onClose={() => setPickerInfo(null)} />
       </div>
     </>
   )
@@ -484,6 +502,8 @@ const css = `
 .db-loc-status.noshift { background: ${T.bgSubtle}; color: ${T.dimMid}; border: 1px solid ${T.border}; }
 .db-loc-pickers { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
 .db-picker-chip { display: flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 500; border: 1px solid transparent; }
+.db-picker-chip.clickable { cursor: pointer; font-family: inherit; line-height: 1.2; }
+.db-picker-chip.clickable:hover { filter: brightness(1.08); }
 .db-picker-chip.in { background: #DCFCE7; color: ${T.tealText}; border-color: #9DEEE6; }
 .db-picker-chip.late { background: ${T.amberBg}; color: ${T.amber}; border-color: #FCD34D; }
 .db-picker-chip.absent { background: ${T.redBg}; color: ${T.red}; border-color: #FCA5A5; }
@@ -533,6 +553,8 @@ const css = `
 .db-detail-section { margin-bottom: 24px; }
 .db-detail-section-title { font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: ${T.dimMid}; margin-bottom: 12px; }
 .db-picker-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; margin-bottom: 6px; background: ${T.bgSubtle}; border: 1px solid ${T.border}; }
+.db-picker-row.clickable { cursor: pointer; transition: border-color .12s, background .12s; }
+.db-picker-row.clickable:hover { border-color: ${T.borderMid}; background: ${T.bgHover}; }
 .db-picker-avatar { width: 32px; height: 32px; border-radius: 50%; background: ${T.tealDark}; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: ${T.onTeal}; flex-shrink: 0; }
 .db-picker-info { flex: 1; }
 .db-picker-name { font-size: 13px; font-weight: 500; color: ${T.white}; display: flex; align-items: center; gap: 6px; }

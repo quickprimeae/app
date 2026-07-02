@@ -17,6 +17,7 @@ export type { LocationStatus }
 export type DashPicker = {
   id: string
   name: string
+  phone: string | null
   status: PickerStatus
   clockedInAt: string | null
   flagged: boolean
@@ -97,7 +98,7 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
       .order('name', { ascending: true }),
     supabase
       .from('employees')
-      .select('id, first_name, last_name, employee_number, location_id, shift_start, shift_end, pin_set, shift_type, supervisor:ops_users(name), vendor:vendors(name, supervisor_name)')
+      .select('id, first_name, last_name, employee_number, phone, location_id, shift_start, shift_end, pin_set, shift_type, supervisor:ops_users(name), vendor:vendors(name, supervisor_name)')
       .eq('tenant_id', tenantId)
       .eq('active', true)
       .eq('role', 'picker'),
@@ -213,6 +214,7 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
       return {
         id: e.employee_number || e.id.slice(0, 8),
         name: shortName(e.first_name, e.last_name),
+        phone: e.phone ?? null,
         status: pstatus,
         clockedInAt: open ? s?.clockInAt ?? null : null,
         flagged: flaggedEmpIds.has(e.id),
