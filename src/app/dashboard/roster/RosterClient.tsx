@@ -144,18 +144,26 @@ export default function RosterClient({
     }
   }
 
-  async function cancelShift() {
-    if (!edit?.shift) return
+  // Mark this picker+day OFF (status='cancelled'). Flips an existing shift by id;
+  // for an empty day sends employee+date so the server CREATES the OFF row. Same
+  // endpoint/semantics as before — OFF is now a first-class, explicit state.
+  async function markDayOff() {
+    if (!edit) return
+    const existing = edit.shift && edit.shift.status !== 'cancelled' ? edit.shift : null
     setBusy(true)
     setError(null)
     try {
       const res = await fetch('/api/schedule/shift', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: edit.shift.id }),
+        body: JSON.stringify(
+          existing
+            ? { id: existing.id }
+            : { employee_id: edit.employee.id, location_id: edit.employee.locationId, date: edit.date }
+        ),
       })
       const body = await res.json()
-      if (!res.ok) { setError(body.error || 'Could not cancel.'); return }
+      if (!res.ok) { setError(body.error || 'Could not mark day off.'); return }
       setEdit(null)
       router.refresh()
     } catch {
@@ -356,8 +364,8 @@ export default function RosterClient({
             <span><i className="rs-dot sch" /> Scheduled</span>
             <span><i className="rs-dot cover" /> Cover</span>
             <span><i className="rs-dot reassigned" /> Reassigned away</span>
-            <span><i className="rs-dot cancelled" /> Cancelled</span>
-            <span><i className="rs-dot off" /> Off (click to add)</span>
+            <span><i className="rs-dot offset" /> Off (marked)</span>
+            <span><i className="rs-dot off" /> Empty (click to add)</span>
           </div>}
         </main>
 
@@ -456,8 +464,8 @@ export default function RosterClient({
                   {error && <div className="rs-modal-err">{error}</div>}
 
                   <div className="rs-modal-actions">
-                    {edit.shift && edit.shift.status !== 'cancelled' ? (
-                      <button className="rs-btn danger" onClick={cancelShift} disabled={busy}>Cancel shift</button>
+                    {edit.shift?.status !== 'cancelled' ? (
+                      <button className="rs-btn off" onClick={markDayOff} disabled={busy}>Mark day off</button>
                     ) : <span />}
                     <div style={{ display: 'flex', gap: 8 }}>
                       {edit.shift?.status === 'scheduled' && (
@@ -488,14 +496,14 @@ function mondayThisWeek(iso: string): string {
 
 function cellClass(s?: RosterShift): string {
   if (!s) return 'off'
-  if (s.status === 'cancelled') return 'cancelled'
+  if (s.status === 'cancelled') return 'offset'
   if (s.status === 'reassigned') return 'reassigned'
   if (s.origin === 'cover') return 'cover'
   return 'sch'
 }
 function cellBody(s: RosterShift | undefined, names: Map<string, string>) {
   if (!s) return <span className="rs-off-plus">+</span>
-  if (s.status === 'cancelled') return <span className="rs-cell-x">cancelled</span>
+  if (s.status === 'cancelled') return <span className="rs-cell-off">OFF</span>
   if (s.status === 'reassigned') {
     const to = names.get(s.reassignedTo ?? '')
     return <><span className="rs-strike">{s.start}–{s.end}</span><span className="rs-cover-to">→ {to ? to.split(' ')[0] : 'cover'}</span></>
@@ -504,7 +512,7 @@ function cellBody(s: RosterShift | undefined, names: Map<string, string>) {
 }
 function cellTitle(s: RosterShift | undefined, names: Map<string, string>): string {
   if (!s) return 'Off — click to add a shift'
-  if (s.status === 'cancelled') return 'Cancelled — click to re-add'
+  if (s.status === 'cancelled') return 'Marked off — click to add a shift'
   if (s.status === 'reassigned') return `Reassigned to ${names.get(s.reassignedTo ?? '') ?? 'cover picker'}`
   return `${s.start}–${s.end}${s.origin === 'cover' ? ' (cover)' : ''}`
 }
@@ -527,6 +535,7 @@ const css = `
 .rs-btn.primary{background:${T.tealMid};color:#1B2B2B}.rs-btn.primary:hover{opacity:.9}
 .rs-btn.ghost{background:${T.bgSubtle};color:${T.whiteMid};border:1px solid ${T.border}}.rs-btn.ghost:hover{border-color:${T.teal};color:${T.tealBright}}
 .rs-btn.danger{background:${T.redBg};color:${T.red};border:1px solid #FCA5A5}
+.rs-btn.off{background:${T.bgSubtle};color:${T.whiteMid};border:1px solid ${T.borderMid}}.rs-btn.off:hover{border-color:${T.dimMid};color:${T.white}}
 .rs-btn.cover{background:${T.blueBg};color:${T.blue};border:1px solid #BAE6FD}.rs-btn.cover:hover{border-color:${T.blue}}
 .rs-btn:disabled{opacity:.5;cursor:not-allowed}
 .rs-cover-select{background:${T.bgSubtle};border:1px solid ${T.border};border-radius:8px;padding:10px 12px;font-family:var(--font-jakarta),sans-serif;font-size:14px;color:${T.white};outline:none;cursor:pointer;width:100%}
@@ -573,11 +582,12 @@ const css = `
 .rs-cell.cover{background:${T.blueBg};color:${T.blue};border-color:#BAE6FD}
 .rs-cell.cover:hover{border-color:${T.blue}}
 .rs-cell.reassigned{background:${T.bgSubtle};border-color:${T.border}}
-.rs-cell.cancelled{background:${T.redBg};color:${T.red};border-color:#FCA5A5}
+.rs-cell.offset{background:${T.bgSubtle};color:${T.dimMid};border-color:${T.border};border-style:dashed;opacity:.75}
+.rs-cell.offset:hover{border-color:${T.borderMid};color:${T.whiteMid};opacity:1}
 .rs-badge{font-size:8px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;background:${T.blue};color:#0E7490;padding:1px 5px;border-radius:8px;font-family:var(--font-jakarta),sans-serif}
 .rs-strike{text-decoration:line-through;color:${T.dimMid};font-size:11px}
 .rs-cover-to{font-size:9px;color:${T.tealText};font-family:var(--font-jakarta),sans-serif}
-.rs-cell-x{font-size:10px;font-family:var(--font-jakarta),sans-serif;text-transform:uppercase;letter-spacing:.04em}
+.rs-cell-off{font-size:10px;font-family:var(--font-jakarta),sans-serif;text-transform:uppercase;letter-spacing:.08em;font-weight:600}
 .rs-foot{padding:8px 10px;text-align:center;font-size:12px;font-weight:600;color:${T.tealText};background:${T.bgSubtle};border-top:1px solid ${T.borderMid};position:sticky;bottom:0}
 .rs-foot.rs-emp-col{text-align:left;color:${T.dim};font-size:10px;text-transform:uppercase;letter-spacing:.06em}
 .rs-foot.today{background:${T.tealFaint}}
@@ -587,7 +597,7 @@ const css = `
 .rs-dot.sch{background:${T.greenBg};border:1px solid #9DEEE6}
 .rs-dot.cover{background:${T.blueBg};border:1px solid #BAE6FD}
 .rs-dot.reassigned{background:${T.bgSubtle};border:1px solid ${T.border}}
-.rs-dot.cancelled{background:${T.redBg};border:1px solid #FCA5A5}
+.rs-dot.offset{background:${T.bgSubtle};border:1px dashed ${T.borderMid};opacity:.75}
 .rs-dot.off{background:none;border:1px dashed ${T.borderMid}}
 .rs-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:flex;align-items:center;justify-content:center;animation:rsFade .15s ease}
 @keyframes rsFade{from{opacity:0}to{opacity:1}}

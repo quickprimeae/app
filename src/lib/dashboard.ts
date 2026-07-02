@@ -118,14 +118,16 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
       .eq('resolved', false)
       .order('created_at', { ascending: false })
       .limit(100),
-    // Today's rostered shift per picker (concrete schedule, not store timings).
-    // This is the SINGLE source for late / no-show — see src/lib/roster.ts.
+    // Today's schedule rows per picker. 'scheduled' rows are the SINGLE source for
+    // late / no-show / the counter (see src/lib/roster.ts). 'cancelled' rows are
+    // DISPLAY-ONLY here: they mark an explicit OFF so the pill reads "OFF" instead
+    // of "no schedule" — they never enter the roster map, counter, or detection.
     supabase
       .from('scheduled_shifts')
-      .select('employee_id, start_time, end_time')
+      .select('employee_id, start_time, end_time, status')
       .eq('tenant_id', tenantId)
       .eq('date', gst.date)
-      .eq('status', 'scheduled'),
+      .in('status', ['scheduled', 'cancelled']),
   ])
 
   // Cast embedded relations to any: without generated DB types, supabase-js
@@ -134,7 +136,12 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
   const employees = (empRes.data ?? []) as any[]
   const events = (evtRes.data ?? []) as SessionEvent[]
   const alertRows = (alertRes.data ?? []) as any[]
-  const scheduled = (schedRes.data ?? []) as { employee_id: string; start_time: string; end_time: string }[]
+  const schedRows = (schedRes.data ?? []) as { employee_id: string; start_time: string; end_time: string; status: string }[]
+  const scheduled = schedRows.filter((r) => r.status === 'scheduled')
+
+  // Pickers with an explicit OFF entry today (a 'cancelled' row). DISPLAY-ONLY:
+  // used to render an "OFF" pill, never to feed the roster map / counter / late.
+  const offToday = new Set<string>(schedRows.filter((r) => r.status === 'cancelled').map((r) => r.employee_id))
 
   // employee_id -> today's scheduled shift (start/end minutes + raw times). ONE
   // map drives BOTH the display string and the late/no-show computation, so they
@@ -200,6 +207,7 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
         clockInMin: open && s?.clockInAt ? gstMinutesOf(new Date(s.clockInAt)) : null,
         clockedOutToday: !!s?.clockedOut,
         rosterStartMin: roster?.startMin ?? null,
+        off: offToday.has(e.id),
         nowMin,
       })
       return {

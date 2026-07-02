@@ -27,6 +27,13 @@ import { addDaysISO, isDateHeader } from '@/lib/schedule'
 
 const hhmm = (t: string) => String(t).slice(0, 5)
 
+// Placeholder times for an explicit OFF row on a day that had no prior shift.
+// status is 'cancelled', so these are never read by detection / late / counter
+// (all filter status='scheduled') nor shown in the grid — they only satisfy the
+// NOT NULL + end_time>start_time constraints.
+const OFF_START = '00:00:00'
+const OFF_END = '00:01:00'
+
 export async function POST(req: NextRequest) {
   const ctx = await getOpsContext()
   if (!ctx?.opsUser) return NextResponse.json({ error: 'Not authorized' }, { status: 401 })
@@ -72,6 +79,10 @@ export async function POST(req: NextRequest) {
 
     // Per viewed date: a scheduled target {start,end}, or null = off.
     const target = new Map<string, { start: string; end: string } | null>()
+    // Days that must become an EXPLICIT OFF row even when currently empty (the
+    // chosen off-day of an Apply-to-week). copy_prior's naturally-off days are NOT
+    // here — those stay simply absent, as before.
+    const explicitOff = new Set<string>()
 
     if (mode === 'apply') {
       const { start_time, end_time, off_date } = body as { start_time?: string; end_time?: string; off_date?: string | null }
@@ -83,6 +94,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'off_date must be one of the viewed-week dates' }, { status: 400 })
       }
       for (const d of dates) target.set(d, d === off_date ? null : { start: start_time, end: end_time })
+      if (off_date != null) explicitOff.add(off_date)
     } else if (mode === 'copy_prior') {
       const priorToViewed = new Map<string, string>() // priorDate -> viewedDate
       const priorDates: string[] = []
@@ -126,10 +138,19 @@ export async function POST(req: NextRequest) {
       } else {
         const cur = current.get(d)
         if (cur && cur.status !== 'cancelled') {
+          // Existing active shift -> flip to OFF, keeping its real times.
           rows.push({
             tenant_id: tenantId, employee_id, location_id, date: d,
             start_time: cur.start_time, end_time: cur.end_time,
             status: 'cancelled', origin: cur.origin ?? 'manual', reassigned_to_employee_id: null, assigned_by: ctx.opsUser.id,
+          })
+          cleared++
+        } else if (!cur && explicitOff.has(d)) {
+          // Empty day chosen as the Apply-to-week off-day -> write a real OFF row.
+          rows.push({
+            tenant_id: tenantId, employee_id, location_id, date: d,
+            start_time: OFF_START, end_time: OFF_END,
+            status: 'cancelled', origin: 'manual', reassigned_to_employee_id: null, assigned_by: ctx.opsUser.id,
           })
           cleared++
         }

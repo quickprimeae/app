@@ -18,6 +18,7 @@ const BADGE_CLASS: Record<DerivedStatus, string> = {
   clocked_out: 'ready',
   absent: 'absent',
   ready: 'ready',
+  off: 'ready',
   no_schedule: 'awaiting',
   awaiting_setup: 'awaiting',
   deactivated: 'deactivated',

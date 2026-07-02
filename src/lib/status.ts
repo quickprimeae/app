@@ -17,9 +17,12 @@
 //                        (session closed — worked, then left). This is NOT a
 //                        no-show: they showed up. Auto-clockout (12h) also lands
 //                        a picker here.
-//   5. no_schedule     — pin set, NOT clocked in, and NO roster row today. They
-//                        are OFF: never late, never a no-show. Surfaced so an
-//                        admin knows to add a schedule entry.
+//   5. off            — pin set, NOT clocked in, and has an explicit OFF entry
+//                        today (a 'cancelled' scheduled_shifts row). Deliberately
+//                        not working — distinct from an accidental missing row.
+//   6. no_schedule     — pin set, NOT clocked in, and NO roster row at all today.
+//                        Also OFF for detection, but nobody marked it — surfaced
+//                        so an admin knows to add (or explicitly clear) a schedule.
 //   6. ready           — rostered, not clocked in, still inside the no-show
 //                        grace window (less than NOSHOW_AFTER_MIN past start).
 //   7. absent          — rostered, NEVER clocked in, NOSHOW_AFTER_MIN past start.
@@ -37,6 +40,7 @@ export type DerivedStatus =
   | 'clocked_out'
   | 'absent'
   | 'ready'
+  | 'off'
   | 'no_schedule'
   | 'awaiting_setup'
   | 'deactivated'
@@ -50,6 +54,8 @@ export type StatusInput = {
   clockedOutToday: boolean
   /** Today's roster start, minutes since GST midnight. null = NO roster row today. */
   rosterStartMin: number | null
+  /** True if there is an explicit OFF entry today (a 'cancelled' shift row). */
+  off?: boolean
   /** Current time, minutes since GST midnight. */
   nowMin: number
 }
@@ -66,6 +72,9 @@ export function deriveStatus(i: StatusInput): DerivedStatus {
   // Clocked in earlier and clocked out again => session done. They SHOWED UP, so
   // this is never a no-show — it outranks the roster-based absence check below.
   if (i.clockedOutToday) return 'clocked_out'
+  // Deliberately marked off today (a 'cancelled' shift row) and not in — a
+  // first-class OFF, distinct from an accidental missing row below.
+  if (i.off) return 'off'
   // Never clocked in. With NO roster row the picker is OFF today — never a
   // no-show, never late. No store-hours fallback: surface "needs schedule".
   if (i.rosterStartMin == null) return 'no_schedule'
@@ -138,6 +147,7 @@ export const STATUS_META: Record<
   clocked_out: { label: 'Clocked out', short: '✓ out', tone: 'grey' },
   absent: { label: 'No-Show', short: '✗ absent', tone: 'red' },
   ready: { label: 'Ready', short: 'ready', tone: 'grey' },
+  off: { label: 'Off', short: 'off', tone: 'grey' },
   no_schedule: { label: 'No schedule', short: '◷ no schedule', tone: 'grey' },
   awaiting_setup: { label: 'Awaiting setup', short: 'awaiting setup', tone: 'grey' },
   deactivated: { label: 'Terminated', short: 'deactivated', tone: 'grey' },

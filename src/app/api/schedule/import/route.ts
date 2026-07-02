@@ -31,6 +31,13 @@ type RowResult = {
 
 const clean = (v: unknown) => String(v ?? '').trim().replace(/\s+/g, ' ')
 
+// Placeholder times for an explicit OFF row on a day with no prior shift. status
+// is 'cancelled', so these are never read by detection / late / counter (all
+// filter status='scheduled') nor shown in the grid — they only satisfy the
+// NOT NULL + end_time>start_time constraints.
+const OFF_START = '00:00:00'
+const OFF_END = '00:01:00'
+
 export async function POST(req: NextRequest) {
   const ctx = await getOpsContext()
   if (!ctx?.opsUser) return NextResponse.json({ error: 'Not authorized' }, { status: 401 })
@@ -107,6 +114,10 @@ export async function POST(req: NextRequest) {
         continue
       }
       const cells = rows[m.row - 2]?.cells ?? {}
+      // A picker "on the roster this week" has >=1 real shift cell. Only for those
+      // do OFF/blank cells become EXPLICIT OFF rows; an all-blank row still just
+      // clears (they aren't being rostered this week).
+      const onRoster = dates.some((d) => parseCell(cells[d] ?? '').kind === 'shift')
       for (const date of dates) {
         const key = `${m.emp.id}|${date}`
         const prior = existing.get(key)
@@ -122,7 +133,28 @@ export async function POST(req: NextRequest) {
           continue
         }
         if (parsed.kind === 'off') {
-          if (prior) { toDelete.push(prior.id); rr.removed++ } else rr.skipped++
+          // Rostered picker: write a first-class OFF row (create when empty, flip a
+          // scheduled row — keeping its times). Non-rostered / reassigned prior keep
+          // the old behaviour: clear the row if present, else skip.
+          if (onRoster && (!prior || prior.status === 'scheduled')) {
+            toUpsert.push({
+              tenant_id: tenantId,
+              employee_id: m.emp.id,
+              location_id: m.emp.location_id,
+              date,
+              start_time: prior?.start_time ?? OFF_START,
+              end_time: prior?.end_time ?? OFF_END,
+              status: 'cancelled',
+              origin: 'csv',
+              reassigned_to_employee_id: null,
+              assigned_by: ctx.opsUser!.id,
+            })
+            rr.removed++
+          } else if (prior) {
+            toDelete.push(prior.id); rr.removed++
+          } else {
+            rr.skipped++
+          }
           continue
         }
         // shift

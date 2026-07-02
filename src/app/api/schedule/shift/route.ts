@@ -3,8 +3,11 @@
 //   POST   { employee_id, location_id, date, start_time, end_time }
 //          → create or revive a 'scheduled' shift for that picker+date (manual)
 //   PATCH  { id, start_time, end_time }  → edit a shift's times
-//   DELETE { id }                        → cancel a shift (status='cancelled';
-//          the row stays so it is auditable and is NOT a no-show for anyone)
+//   DELETE { id }  OR  { employee_id, location_id, date }
+//          → mark that picker+day OFF (status='cancelled'). The row stays so it
+//            is auditable and is NOT a no-show for anyone. With {id} an existing
+//            shift is flipped; with {employee_id, location_id, date} an OFF row
+//            is created even when the day was empty (no prior shift).
 //
 // Upsert key is (employee_id, date): creating over a cancelled/reassigned row
 // revives it. Every mutation writes an append-only audit_logs row.
@@ -15,6 +18,13 @@ import { getOpsContext } from '@/lib/ops'
 import { isValidShiftWindow } from '@/lib/shift'
 
 const SHIFT_COLS = 'id, tenant_id, employee_id, location_id, date, start_time, end_time, status, origin, reassigned_to_employee_id, assigned_by, created_at'
+
+// Placeholder times for an OFF row created on a previously-empty day. status is
+// 'cancelled', so these are never read by detection / late / the counter (all
+// filter status='scheduled') nor shown in the grid; they only satisfy the
+// NOT NULL + end_time>start_time constraints. Existing shifts keep their times.
+const OFF_START = '00:00:00'
+const OFF_END = '00:01:00'
 
 async function audit(
   supabase: ReturnType<typeof createServerSupabaseClient>,
@@ -137,35 +147,62 @@ export async function DELETE(req: NextRequest) {
   const supabase = createServerSupabaseClient()
 
   try {
-    const { id } = await req.json()
-    if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
+    const { id, employee_id, location_id, date } = await req.json()
+    if (!id && !(employee_id && location_id && date)) {
+      return NextResponse.json({ error: 'id, or employee_id + location_id + date, required' }, { status: 400 })
+    }
 
-    const { data: before } = await supabase
+    // Locate the prior row: by id (flip an existing shift) or by (employee, date)
+    // (mark an empty/known day off). Either way we end at one 'cancelled' row.
+    const priorQuery = supabase
       .from('scheduled_shifts')
       .select(SHIFT_COLS)
       .eq('tenant_id', tenantId)
-      .eq('id', id)
-      .maybeSingle()
-    if (!before) return NextResponse.json({ error: 'Shift not found' }, { status: 404 })
+    const { data: before } = id
+      ? await priorQuery.eq('id', id).maybeSingle()
+      : await priorQuery.eq('employee_id', employee_id).eq('date', date).maybeSingle()
 
-    // Cancel = keep the row (auditable, not a no-show) rather than delete it.
+    // With {id} the row must exist; with {employee_id,date} an empty day is fine —
+    // we create the OFF row. An already-cancelled day is a no-op success.
+    if (id && !before) return NextResponse.json({ error: 'Shift not found' }, { status: 404 })
+    if (before?.status === 'cancelled') {
+      return NextResponse.json({ success: true, shift: before })
+    }
+
+    // Mark OFF = keep/create a 'cancelled' row (auditable, not a no-show) rather
+    // than delete. Flipping an existing shift preserves its real times; a brand
+    // new OFF day gets placeholder times (never surfaced — see OFF_START/END).
+    const empId = before?.employee_id ?? employee_id
+    const offDate = before?.date ?? date
     const { data: after, error } = await supabase
       .from('scheduled_shifts')
-      .update({ status: 'cancelled' })
-      .eq('tenant_id', tenantId)
-      .eq('id', id)
+      .upsert(
+        {
+          tenant_id: tenantId,
+          employee_id: empId,
+          location_id: before?.location_id ?? location_id,
+          date: offDate,
+          start_time: before?.start_time ?? OFF_START,
+          end_time: before?.end_time ?? OFF_END,
+          status: 'cancelled',
+          origin: before?.origin ?? 'manual',
+          reassigned_to_employee_id: null,
+          assigned_by: ctx.opsUser.id,
+        },
+        { onConflict: 'employee_id,date' }
+      )
       .select(SHIFT_COLS)
       .single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-    // Retract any no-show alert already raised for this picker on the cancelled
-    // shift's GST day. detect_noshows() can't fire for a cancelled shift, but an
-    // alert raised BEFORE the cancel (while status='scheduled') would otherwise
-    // hang unresolved forever. GST day = the shift's `date`; that day spans UTC
+    // Retract any no-show alert already raised for this picker on the OFF'd GST
+    // day. detect_noshows() can't fire for a cancelled shift, but an alert raised
+    // BEFORE the cancel (while status='scheduled') would otherwise hang unresolved
+    // forever. GST day = the shift's `date`; that day spans UTC
     // [date 00:00+04:00, next 00:00+04:00). Only noshow, only this picker+day,
     // only still-open — other alert types are untouched.
-    const gstStart = `${before.date}T00:00:00+04:00`
-    const nextDay = new Date(`${before.date}T00:00:00Z`)
+    const gstStart = `${offDate}T00:00:00+04:00`
+    const nextDay = new Date(`${offDate}T00:00:00Z`)
     nextDay.setUTCDate(nextDay.getUTCDate() + 1)
     const gstEnd = `${nextDay.toISOString().slice(0, 10)}T00:00:00+04:00`
     await supabase
@@ -174,19 +211,19 @@ export async function DELETE(req: NextRequest) {
         resolved: true,
         resolved_at: new Date().toISOString(),
         resolved_by: ctx.opsUser.id,
-        resolution_note: 'Auto-resolved: shift cancelled',
+        resolution_note: 'Auto-resolved: marked day off',
       })
       .eq('tenant_id', tenantId)
-      .eq('employee_id', before.employee_id)
+      .eq('employee_id', empId)
       .eq('type', 'noshow')
       .eq('resolved', false)
       .gte('created_at', gstStart)
       .lt('created_at', gstEnd)
 
-    await audit(supabase, tenantId, ctx.opsUser.id, 'cancel', id, before, after)
+    await audit(supabase, tenantId, ctx.opsUser.id, 'cancel', after.id, before ?? null, after)
     return NextResponse.json({ success: true, shift: after })
   } catch (err) {
-    console.error('Shift cancel error:', err)
+    console.error('Shift mark-off error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

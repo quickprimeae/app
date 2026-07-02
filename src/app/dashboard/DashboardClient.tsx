@@ -21,6 +21,7 @@ const CHIP_CLASS: Record<DerivedStatus, string> = {
   clocked_out: 'expected',
   absent: 'absent',
   ready: 'expected',
+  off: 'off',
   no_schedule: 'awaiting',
   awaiting_setup: 'awaiting',
   deactivated: 'expected',
@@ -391,7 +392,7 @@ export default function DashboardClient({
                           </div>
                           <div className="db-picker-id">{p.id}</div>
                           <div className="db-picker-meta">
-                            <span className={`db-picker-roster ${p.rosterShift ? '' : 'none'}`}>{p.rosterShift ?? 'No shift assigned'}</span>
+                            <span className={`db-picker-roster ${p.rosterShift ? '' : 'none'}`}>{p.rosterShift ?? (p.status === 'off' ? 'Off today' : 'No shift assigned')}</span>
                             {p.vendor && <span className="db-picker-sup">{p.vendor}</span>}
                           </div>
                         </div>
@@ -488,6 +489,7 @@ const css = `
 .db-picker-chip.absent { background: ${T.redBg}; color: ${T.red}; border-color: #FCA5A5; }
 .db-picker-chip.expected { background: ${T.bgSubtle}; color: ${T.dimMid}; border-color: ${T.border}; }
 .db-picker-chip.awaiting { background: ${T.bgSubtle}; color: ${T.dim}; border-color: ${T.borderMid}; border-style: dashed; }
+.db-picker-chip.off { background: transparent; color: ${T.dimMid}; border-color: ${T.border}; opacity: .6; }
 .db-picker-chip.flagged { background: #FEF3C7; color: ${T.amber}; border-color: #FCD34D; }
 .db-chip-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
 .db-chip-dot.in { background: ${T.tealBright}; }
@@ -495,6 +497,7 @@ const css = `
 .db-chip-dot.absent { background: ${T.red}; }
 .db-chip-dot.expected { background: ${T.dimMid}; }
 .db-chip-dot.awaiting { background: ${T.dim}; }
+.db-chip-dot.off { background: ${T.dimMid}; }
 .db-chip-dot.flagged { background: ${T.amber}; }
 .db-loc-footer { display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid ${T.border}; font-size: 11px; color: ${T.dim}; }
 .db-loc-footer-stat { display: flex; align-items: center; gap: 5px; }
@@ -548,6 +551,7 @@ const css = `
 .db-picker-status-badge.late { background: ${T.amberBg}; color: ${T.amber}; }
 .db-picker-status-badge.absent { background: ${T.redBg}; color: ${T.red}; }
 .db-picker-status-badge.expected { background: ${T.bgSubtle}; color: ${T.dimMid}; }
+.db-picker-status-badge.off { background: transparent; color: ${T.dimMid}; border: 1px solid ${T.border}; opacity: .7; }
 .db-picker-status-badge.awaiting { background: ${T.bgSubtle}; color: ${T.dim}; }
 .db-picker-status-badge.flagged { background: ${T.amberBg}; color: ${T.amber}; }
 .db-detail-stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
